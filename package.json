@@ -8,6 +8,7 @@
     "start": "node -r module-alias/register ./dist/index.js",
     "start:production": "npm run migrate up & node -r module-alias/register ./dist/index.js",
     "build:clean": "rimraf dist && tsc",
+    "vercel-build": "tsc",
     "build": "npm run clean & npm run compile",
     "dev": "concurrently \"tsc --watch\" \"nodemon -q -r module-alias/register ./dist/index.js \"",
     "test": "echo \"Error: no test specified\" && exit 1"
