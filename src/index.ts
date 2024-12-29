@@ -131,8 +131,8 @@ const init = async () => {
         intent: "sale",
         payer: { payment_method: "paypal" },
         redirect_urls: {
-          return_url: `${process.env.CLIENT_URL}/success`,
-          cancel_url: `${process.env.CLIENT_URL}/cancel`,
+          return_url: `http://localhost:5173/success`,
+          cancel_url: `http://localhost:5173/cancel`,
         },
         transactions: [
           {
