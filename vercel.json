@@ -1,10 +1,13 @@
 {
     "version": 2,
     "builds": [
-      {
-        "src": "src/index.ts", 
-        "use": "@vercel/node"
-      }
+        {
+            "src": "package.json",
+            "use": "@vercel/node",
+            "config": {
+              "prebuild": "apt-get update && apt-get install -y unixodbc-dev"
+            }
+          }
     ],
     "routes": [
       {
