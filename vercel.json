@@ -1,13 +1,13 @@
 {
     "version": 2,
     "builds": [
-        {
-            "src": "package.json",
-            "use": "@vercel/node",
-            "config": {
-              "prebuild": "apt-get update && apt-get install -y unixodbc-dev"
-            }
-          }
+      {
+        "src": "package.json",
+        "use": "@vercel/node",
+        "config": {
+          "prebuild": "apt-get update && apt-get install -y unixodbc-dev g++ make python3"
+        }
+      }
     ],
     "routes": [
       {
@@ -16,4 +16,3 @@
       }
     ]
   }
-  
