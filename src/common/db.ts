@@ -11,17 +11,16 @@ import sql from "mssql/msnodesqlv8";
 //   connectionString: `Driver={ODBC Driver 17 for SQL Server};Server=${process.env.DB_SERVER};Database=${process.env.DB_NAME};user=${process.env.DB_USER};password=${process.env.DB_PASSWORD};`
 // };
 
-//production configuration
 const config = {
+  driver: 'msnodesqlv8',
   connectionString: 
     "Driver={ODBC Driver 17 for SQL Server};" +
     "Server=109.203.112.112;" +
     "Database=cir126_cirec;" +
-    "UID=and_cirec;" +  // Note: Changed 'user=' to 'UID='
-    "PWD=78ati!8E3;"    // Note: Changed 'password=' to 'PWD='
+    "UID=and_cirec;" +
+    "PWD=78ati!8E3;" +
+    "TrustServerCertificate=yes;"
 };
-
-
 
 // Create a reusable connection pool
 let connectionPool: sql.ConnectionPool | null = null;
