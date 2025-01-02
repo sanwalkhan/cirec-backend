@@ -32,9 +32,8 @@
     "msnodesqlv8": "^4.4.0",
     "mssql": "^11.0.1",
     "nodemailer": "^6.9.16",
-    "nodemailer-express-handlebars": "^7.0.0",
+    "nodemailer-express-handlebars": "^4.0.0",
     "paypal-rest-sdk": "^1.8.1",
-    "pg": "^8.13.1",
     "qs": "^6.13.1",
     "winston": "^3.17.0"
   },
@@ -46,7 +45,6 @@
     "@types/nodemailer": "^6.4.17",
     "@types/nodemailer-express-handlebars": "^4.0.5",
     "@types/paypal-rest-sdk": "^1.7.9",
-    "@types/pg": "^8.11.10",
     "@types/qs": "^6.9.17",
     "i": "^0.3.7",
     "npm": "^10.9.1",
