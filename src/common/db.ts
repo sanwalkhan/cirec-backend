@@ -1,81 +1,58 @@
-import sql from "mssql/msnodesqlv8";
+import sql, { ConnectionPool, IResult } from 'mssql';
 
 // Configuration for SQL Server
-//local configuration
-// const config = {
-//   connectionString:
-//     "Driver={SQL Server Native Client 11.0};Server=effii\\SQLEXPRESS;Database=cir126_cirec_2;Trusted_Connection=yes;",
-// };
-
-// const config = {
-//   connectionString: `Driver={ODBC Driver 17 for SQL Server};Server=${process.env.DB_SERVER};Database=${process.env.DB_NAME};user=${process.env.DB_USER};password=${process.env.DB_PASSWORD};`
-// };
-
-const config = {
-  driver: 'msnodesqlv8',
-  connectionString: 
-    "Driver={ODBC Driver 17 for SQL Server};" +
-    "Server=109.203.112.112;" +
-    "Database=cir126_cirec;" +
-    "UID=and_cirec;" +
-    "PWD=78ati!8E3;" +
-    "TrustServerCertificate=yes;"
+const config: sql.config = {
+  driver: 'msnodesqlv8', // Use msnodesqlv8 for SQL Server
+  server: '109.203.112.112',
+  database: 'cir126_cirec',
+  user: 'and_cirec',
+  password: '78ati!8E3',
+  options: {
+    trustServerCertificate: true, // Important for self-signed certificates
+  }
 };
 
 // Create a reusable connection pool
-let connectionPool: sql.ConnectionPool | null = null;
+let connectionPool: ConnectionPool | null = null;
 
-export const getSqlConnection = async (): Promise<sql.ConnectionPool> => {
+// Function to get the SQL connection pool
+export const getSqlConnection = async (): Promise<ConnectionPool> => {
   if (!connectionPool) {
     try {
-      connectionPool = await sql.connect(config as any);
+      // Establish a new connection if one doesn't exist
+      connectionPool = await sql.connect(config);
       console.log("SQL Server connected successfully!");
     } catch (err) {
       console.error("Error connecting to SQL Server:", err);
-      throw err; // Rethrow to ensure the calling code is aware of connection failures
+      throw err; // Rethrow the error to notify calling code of the failure
     }
   }
   return connectionPool;
 };
 
-// Query wrapper for convenience
-export const executeQuery = async (query: string, params?: { [key: string]: any }): Promise<sql.IResult<any>> => {
+// Query wrapper for executing SQL queries
+export const executeQuery = async (query: string, params?: { [key: string]: any }): Promise<IResult<any>> => {
   try {
-    const pool = await getSqlConnection();
-    const request = pool.request();
+    const pool = await getSqlConnection(); // Get the connection pool
+    const request = pool.request(); // Create a new request from the pool
 
-    // Add parameters if any
+    // Add parameters if provided
     if (params) {
       Object.entries(params).forEach(([key, value]) => {
         request.input(key, value);
       });
     }
 
-    return (await request.query(query));
+    // Execute the query and return the result
+    return await request.query(query);
   } catch (err) {
     console.error("Error executing query:", err);
-    throw err;
+    throw err; // Rethrow the error
   }
 };
 
-// export const temp = async () => {
-//   const result = await executeQuery(`SELECT
-// 	    p.pr_name, pc.pc_year, SUM(pc.pc_amount) as total_amount 
-// 		FROM and_cirec.cr_rep_products p
-// 		LEFT JOIN cr_rep_polishchemical_export pc ON p.pr_id = pc.pro_id
-// 		WHERE p.pr_id IN(32)
-// 		AND pc_year >= '2010' AND pc_year <= '2024'
-//     GROUP BY p.pr_name, pc.pc_year
-// 		ORDER BY p.pr_name, pc.pc_year
-//     `)
-
-//   console.log(result.recordset);
-
-// }
-
-
-// Example usage
-export async function fetchTables() {
+// Example usage: Fetching table names from the database
+export async function fetchTables(): Promise<void> {
   try {
     const result = await executeQuery(`
       SELECT TABLE_SCHEMA, TABLE_NAME 
