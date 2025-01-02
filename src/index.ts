@@ -39,7 +39,7 @@ const init = async () => {
       },
       cors: {
         origin: ["*"],
-        credentials: false,
+        credentials: true,
         additionalHeaders: [
           "Authorization",
           "Content-Type",
