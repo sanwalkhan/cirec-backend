@@ -38,7 +38,7 @@ const init = async () => {
         server: 120 * 1000,
       },
       cors: {
-        origin: "*",
+        origin: ["https://cirec-app-suite.vercel.app"],
         credentials: true,
         additionalHeaders: [
           "Authorization",
