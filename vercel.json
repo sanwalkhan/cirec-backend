@@ -12,6 +12,18 @@
     ],
     "routes": [
       {
+        "src": "/documentation/(.*)",
+        "dest": "src/index.ts"
+      },
+      {
+        "src": "/swagger.json",
+        "dest": "src/index.ts"
+      },
+      {
+        "src": "/swaggerui/(.*)",
+        "dest": "src/index.ts"
+      },
+      {
         "src": "/(.*)",
         "dest": "src/index.ts"
       }
