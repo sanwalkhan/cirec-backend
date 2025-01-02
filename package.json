@@ -29,7 +29,6 @@
     "hapi-swagger": "^17.2.1",
     "luxon": "^3.5.0",
     "module-alias": "^2.2.3",
-    "msnodesqlv8": "^4.4.0",
     "mssql": "^11.0.1",
     "nodemailer": "^6.9.16",
     "nodemailer-express-handlebars": "^4.0.0",
