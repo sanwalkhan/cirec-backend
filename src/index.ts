@@ -38,7 +38,7 @@ const init = async () => {
         server: 120 * 1000,
       },
       cors: {
-        origin: ["*"],
+        origin: "*",
         credentials: true,
         additionalHeaders: [
           "Authorization",
