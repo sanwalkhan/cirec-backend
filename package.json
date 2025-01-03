@@ -20,7 +20,9 @@
     "@hapi/inert": "^7.1.0",
     "@hapi/vision": "^7.0.3",
     "@paypal/checkout-server-sdk": "^1.0.3",
+    "@vercel/node": "^5.0.2",
     "axios": "^1.7.9",
+    "cache-manager": "^5.7.6",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
@@ -30,6 +32,7 @@
     "luxon": "^3.5.0",
     "module-alias": "^2.2.3",
     "mssql": "^11.0.1",
+    "node-cache": "^5.1.2",
     "nodemailer": "^6.9.16",
     "nodemailer-express-handlebars": "^4.0.0",
     "paypal-rest-sdk": "^1.8.1",
@@ -37,6 +40,7 @@
     "winston": "^3.17.0"
   },
   "devDependencies": {
+    "@types/cache-manager": "^4.0.6",
     "@types/jsonwebtoken": "^9.0.7",
     "@types/luxon": "^3.4.2",
     "@types/mssql": "^9.1.5",

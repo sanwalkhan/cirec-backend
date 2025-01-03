@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { RouteOptions } from "@hapi/hapi";
 import Joi from "joi";
 import { executeQuery } from "../../../common/db";
@@ -44,79 +43,48 @@ export const searchDatabaseOptions: RouteOptions = {
     const { key: findWord, page = 1, cb1 = false } = request.query;
 
     try {
-      // Sanitize input
       const sanitizedWord = findWord.replace(/[&<>"']/g, "");
       const pageSize = 20;
       const offset = (Number(page) - 1) * pageSize;
 
       // Count total matching articles
-      let countQuery = `
+      const countQuery = `
         SELECT COUNT(*) AS totalCount 
         FROM and_cirec.cr_articles 
-        WHERE ar_title LIKE @keyword OR ar_content LIKE @keyword
+        WHERE ${cb1 ? 'CONTAINS((ar_title, ar_content), @keyword)' : 'ar_title LIKE @keyword OR ar_content LIKE @keyword'}
       `;
 
-      if (cb1) {
-        countQuery = `
-          SELECT COUNT(*) AS totalCount 
-          FROM and_cirec.cr_articles AS FT_TBL 
-          WHERE 
-            FREETEXT((ar_title, ar_content), @keyword) 
-            OR ar_title LIKE @keyword
-        `;
-      }
-
       const countResult = await executeQuery(countQuery, {
-        keyword: `%${sanitizedWord}%`,
+        keyword: cb1 ? `"${sanitizedWord}"` : `%${sanitizedWord}%`,
       });
-      console.log(countResult, "countResult");
       const totalArticles = countResult.recordset[0].totalCount;
 
       // Search query
-      let searchQuery = `
+      const searchQuery = `
         WITH RankedArticles AS (
           SELECT 
             ar_id, 
             ar_title, 
             ar_datetime,
-            ROW_NUMBER() OVER (ORDER BY ar_datetime DESC) AS RowNum
-          FROM and_cirec.cr_articles 
-          WHERE ar_title LIKE @keyword OR ar_content LIKE @keyword 
+            ${cb1 ? 'KEY_TBL.RANK,' : ''}
+            ROW_NUMBER() OVER (ORDER BY ${cb1 ? 'KEY_TBL.RANK DESC' : 'ar_datetime DESC'}) AS RowNum
+          FROM and_cirec.cr_articles AS FT_TBL 
+          ${cb1 ? `
+            INNER JOIN CONTAINSTABLE(and_cirec.cr_articles, (ar_title, ar_content), @keyword) AS KEY_TBL 
+            ON FT_TBL.ar_id = KEY_TBL.[KEY]
+          ` : 'WHERE ar_title LIKE @keyword OR ar_content LIKE @keyword'}
         )
-        SELECT ar_id, ar_title, ar_datetime
+        SELECT ar_id, ar_title, ar_datetime${cb1 ? ', RANK' : ''}
         FROM RankedArticles
         WHERE RowNum BETWEEN @offset + 1 AND @offset + @pageSize
+        ORDER BY ${cb1 ? 'RANK DESC' : 'ar_datetime DESC'}
       `;
 
-      if (cb1) {
-        searchQuery = `
-          WITH RankedArticles AS (
-            SELECT 
-              FT_TBL.ar_id, 
-              FT_TBL.ar_title, 
-              FT_TBL.ar_datetime,
-              KEY_TBL.RANK,
-              ROW_NUMBER() OVER (ORDER BY KEY_TBL.RANK DESC) AS RowNum
-            FROM and_cirec.cr_articles AS FT_TBL 
-            LEFT OUTER JOIN FREETEXTTABLE(and_cirec.cr_articles, (ar_title, ar_content), @keyword) AS KEY_TBL 
-              ON FT_TBL.ar_id = KEY_TBL.[KEY]
-            WHERE 
-              FREETEXT((ar_title, ar_content), @keyword) 
-              OR ar_title LIKE @keyword
-          )
-          SELECT ar_id, ar_title, ar_datetime, RANK
-          FROM RankedArticles
-          WHERE RowNum BETWEEN @offset + 1 AND @offset + @pageSize
-        `;
-      }
-
       const articlesResult = await executeQuery(searchQuery, {
-        keyword: `%${sanitizedWord}%`,
+        keyword: cb1 ? `"${sanitizedWord}"` : `%${sanitizedWord}%`,
         offset,
         pageSize,
       });
-
-      console.log(articlesResult.recordset.length, "articlesResult");
 
       // Check for suggested keywords
       let suggestedKeyword = null;
@@ -130,7 +98,6 @@ export const searchDatabaseOptions: RouteOptions = {
       const suggestedResult = await executeQuery(suggestedQuery, {
         keyword: sanitizedWord,
       });
-      console.log(suggestedResult, "suggestedResult");
 
       if (suggestedResult.recordset.length > 0) {
         suggestedKeyword = suggestedResult.recordset[0].sk_suggestedkey;

@@ -11,7 +11,7 @@ import { setupRoutes } from "./api/routes";
 import { config } from "./common/index";
 import { logger } from "./common/logger";
 import paypal from "paypal-rest-sdk";
-import { fetchTables } from "./common/db";
+// import { fetchTables } from "./common/db";
 
 paypal.configure({
   mode: "sandbox", // Change to 'live' for production
@@ -168,7 +168,7 @@ const init = async () => {
   console.log("Server running on %s", server.info.uri);
 };
 
-fetchTables();
+// fetchTables();
 
 process.on("unhandledRejection", (err) => {
   console.log(err);

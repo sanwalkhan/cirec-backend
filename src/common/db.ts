@@ -1,47 +1,34 @@
+import { NowRequest, NowResponse } from '@vercel/node';
 import sql from 'mssql';
+import NodeCache from 'node-cache';
 
-// Production configuration
+const cache = new NodeCache({ stdTTL: 600 }); // Cache for 10 minutes
+
 const config: sql.config = {
   server: '109.203.112.112',
   database: 'cir126_cirec',
   user: 'and_cirec',
   password: '78ati!8E3',
   options: {
-    encrypt: true, // For Azure
-    trustServerCertificate: true, // Change to false in production if you have proper SSL certificates
+    encrypt: true,
+    trustServerCertificate: true,
   },
   pool: {
     max: 10,
     min: 0,
-    idleTimeoutMillis: 30000
-  }
+    idleTimeoutMillis: 30000,
+  },
 };
 
-// Create a reusable connection pool
-let connectionPool: sql.ConnectionPool | null = null;
-
-export const getSqlConnection = async (): Promise<sql.ConnectionPool> => {
-  if (!connectionPool) {
-    try {
-      connectionPool = await new sql.ConnectionPool(config).connect();
-      console.log("SQL Server connected successfully!");
-    } catch (err) {
-      console.error("Error connecting to SQL Server:", err);
-      throw err;
-    }
-  }
-  return connectionPool;
-};
-
-export const executeQuery = async <T = any>(
-  query: string, 
+export async function executeQuery<T = any>(
+  query: string,
   params?: { [key: string]: any }
-): Promise<sql.IResult<T>> => {
+): Promise<sql.IResult<T>> {
+  const pool = new sql.ConnectionPool(config);
+  await pool.connect();
   try {
-    const pool = await getSqlConnection();
     const request = pool.request();
 
-    // Add parameters if any
     if (params) {
       Object.entries(params).forEach(([key, value]) => {
         request.input(key, value);
@@ -49,28 +36,69 @@ export const executeQuery = async <T = any>(
     }
 
     return await request.query(query);
-  } catch (err) {
-    console.error("Error executing query:", err);
-    throw err;
+  } finally {
+    await pool.close();
   }
-};
+}
 
-export const fetchTables = async (): Promise<void> => {
+export default async (req: NowRequest, res: NowResponse) => {
+  const { key: findWord, page = 1, cb1 = false } = req.query;
+  const pageSize = 20;
+  const offset = (Number(page) - 1) * pageSize;
+
   try {
-    const result = await executeQuery(`
-      SELECT TABLE_SCHEMA, TABLE_NAME 
-      FROM INFORMATION_SCHEMA.TABLES 
-      WHERE TABLE_TYPE = 'BASE TABLE'
-    `);
+    const cacheKey = `search:${findWord}:${page}:${cb1}`;
+    const cachedResult = cache.get(cacheKey);
+    if (cachedResult) {
+      return res.status(200).json(cachedResult);
+    }
 
-    console.log(
-      "Available tables:",
-      result.recordset.map(
-        (table: { TABLE_SCHEMA: string; TABLE_NAME: string }) => 
-          `${table.TABLE_SCHEMA}.${table.TABLE_NAME}`
-      )
-    );
-  } catch (err) {
-    console.error("Error fetching tables:", err);
+    const sanitizedWord = (findWord as string).replace(/[&<>"']/g, "");
+
+    const countQuery = `
+      SELECT COUNT(*) AS totalCount 
+      FROM and_cirec.cr_articles 
+      WHERE ${cb1 ? 'CONTAINS((ar_title, ar_content), @keyword)' : 'ar_title LIKE @keyword OR ar_content LIKE @keyword'}
+    `;
+
+    const countResult = await executeQuery(countQuery, {
+      keyword: cb1 ? `"${sanitizedWord}"` : `%${sanitizedWord}%`,
+    });
+    const totalArticles = countResult.recordset[0].totalCount;
+
+    const searchQuery = `
+      SELECT 
+        ar_id, 
+        ar_title, 
+        ar_datetime
+      FROM and_cirec.cr_articles
+      WHERE ${cb1 ? 'CONTAINS((ar_title, ar_content), @keyword)' : 'ar_title LIKE @keyword OR ar_content LIKE @keyword'}
+      ORDER BY ar_datetime DESC
+      OFFSET @offset ROWS FETCH NEXT @pageSize ROWS ONLY
+    `;
+
+    const articlesResult = await executeQuery(searchQuery, {
+      keyword: cb1 ? `"${sanitizedWord}"` : `%${sanitizedWord}%`,
+      offset,
+      pageSize,
+    });
+
+    const result = {
+      success: totalArticles > 0,
+      totalArticles,
+      articles: articlesResult.recordset,
+      pagination: {
+        currentPage: Number(page),
+        totalPages: Math.ceil(totalArticles / pageSize),
+        pageSize,
+      },
+    };
+
+    cache.set(cacheKey, result);
+
+    res.status(200).json(result);
+  } catch (error) {
+    console.error("Search process failed:", error);
+    res.status(500).json({ success: false, message: "Search process failed" });
   }
 };
