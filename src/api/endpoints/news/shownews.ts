@@ -84,7 +84,7 @@ export const getPdfNewsOptions: RouteOptions = {
       const filename = result.recordset[0].nw_pdf_link;
       //   const filePath = path.join(__dirname, '..', '..', '..', 'crpdfnet', filename);
       const filePath = path.resolve(
-        config.enviornment === "development" ? `src/utils/crpdfnet/${filename}` : `crpdfnet/${filename}`
+        config.enviornment === "production" ? `src/utils/crpdfnet/${filename}` : `crpdfnet/${filename}`
       );
 
       // Check if file exists
