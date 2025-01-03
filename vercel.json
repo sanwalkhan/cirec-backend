@@ -8,10 +8,6 @@
         "maxDuration": 10,
         "memory": 1024
       }
-    },
-    {
-      "src": "public/**",
-      "use": "@vercel/static"
     }
   ],
   "routes": [
@@ -26,6 +22,10 @@
     {
       "src": "/swaggerui/(.*)",
       "dest": "src/index.ts"
+    },
+    {
+      "src": "/crpdfnet/(.*)",
+      "dest": "src/utils/crpdfnet/$1"
     },
     {
       "src": "/(.*)",
