@@ -70,28 +70,28 @@ const init = async () => {
     },
     {
       plugin: HapiSwagger,
-options: <HapiSwagger.RegisterOptions> {
-  grouping: "tags",
-  security: [{ API_KEY: [] }],
-  securityDefinitions: {
-    API_KEY: {
-      type: "apiKey",
-      name: "Authorization",
-      in: "header",
-      "x-default": "demo-api-key",
-    },
-  },
-  schemes: [config.enviornment === "production" ? "http" : "https"],
-  host: process.env.URL,
-  cors: true,
-  tryItOutEnabled: true,
-  documentationPath: "/documentation",  
-  sortEndpoints: "ordered",
-  info: {
-    title: "Cirec API",
-    version: require("../package.json").version,
-    description: apiDescription,
-  },
+      options: <HapiSwagger.RegisterOptions>{
+        grouping: "tags",
+        security: [{ API_KEY: [] }],
+        securityDefinitions: {
+          API_KEY: {
+            type: "apiKey",
+            name: "Authorization",
+            in: "header",
+            "x-default": "demo-api-key",
+          },
+        },
+        schemes: [config.enviornment === "development" ? "http" : "https"],
+        host: process.env.URL,
+        cors: true,
+        tryItOutEnabled: true,
+        documentationPath: "/",
+        sortEndpoints: "ordered",
+        info: {
+          title: "Cirec API",
+          version: require("../package.json").version,
+          description: apiDescription,
+        },
       },
     },
     {
