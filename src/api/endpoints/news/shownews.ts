@@ -83,10 +83,10 @@ export const getPdfNewsOptions: RouteOptions = {
       // Get filename
       const filename = result.recordset[0].nw_pdf_link;
       //   const filePath = path.join(__dirname, '..', '..', '..', 'crpdfnet', filename);
-      const filePath = path.join(
-        process.env.NODE_ENV === "development" ? "src/utils/crpdfnet" : "dist/crpdfnet",
-        filename
-      );
+      const filePath = process.env.NODE_ENV === "production" 
+  ? path.join(__dirname, '..', '..', '..', 'src', 'utils', 'crpdfnet', filename) 
+  : path.join(__dirname, '..', '..', '..', 'public', 'crpdfnet', filename);
+
       // Check if file exists
       if (!fs.existsSync(filePath)) {
         return h
