@@ -44,7 +44,7 @@ export const searchDatabaseOptions: RouteOptions = {
 
     try {
       const sanitizedWord = findWord.replace(/[&<>"']/g, "");
-      const pageSize = 20;
+      const pageSize = 5;
       const offset = (Number(page) - 1) * pageSize;
 
       // Count total matching articles
