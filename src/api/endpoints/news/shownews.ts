@@ -1,3 +1,4 @@
+
 import { ResponseToolkit, RouteOptions } from "@hapi/hapi";
 import * as fs from "fs";
 import Joi from "joi";
@@ -20,13 +21,6 @@ export const getPdfNewsOptions: RouteOptions = {
       order: 5,
     },
   },
-  //   response: {
-  //     schema: Joi.object({
-  //       success: Joi.boolean(),
-  //       message: Joi.string().optional(),
-  //       redirectUrl: Joi.string().optional(),
-  //     }),
-  //   },
   handler: async (request, h: ResponseToolkit) => {
     // Authenticate session
     const session = request.auth.credentials as {
@@ -82,10 +76,14 @@ export const getPdfNewsOptions: RouteOptions = {
 
       // Get filename
       const filename = result.recordset[0].nw_pdf_link;
-      //   const filePath = path.join(__dirname, '..', '..', '..', 'crpdfnet', filename);
-      const filePath = path.resolve(
-        config.enviornment === "production" ? `src/utils/crpdfnet/${filename}` : `crpdfnet/${filename}`
-      );
+      
+      // Updated file path to use public directory for production
+      let filePath;
+      if (config.enviornment === "development") {
+        filePath = path.join(process.cwd(), 'src', 'utils', 'crpdfnet', filename);
+      } else {
+        filePath = path.join(process.cwd(), 'public', 'pdfs', filename);
+      }
 
       // Check if file exists
       if (!fs.existsSync(filePath)) {
