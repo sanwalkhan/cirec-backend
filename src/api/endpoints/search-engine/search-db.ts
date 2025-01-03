@@ -11,6 +11,7 @@ export const searchDatabaseOptions: RouteOptions = {
     query: Joi.object({
       key: Joi.string().required(),
       page: Joi.number().optional().default(1),
+      pageSize: Joi.number().optional().default(5), // Added pageSize as a query parameter
       cb1: Joi.boolean().optional().default(false),
     }),
   },
@@ -40,26 +41,13 @@ export const searchDatabaseOptions: RouteOptions = {
     }),
   },
   handler: async (request, h) => {
-    const { key: findWord, page = 1, cb1 = false } = request.query;
+    const { key: findWord, page = 1, pageSize = 5, cb1 = false } = request.query;
 
     try {
       const sanitizedWord = findWord.replace(/[&<>"']/g, "");
-      const pageSize = 5;
       const offset = (Number(page) - 1) * pageSize;
 
-      // Count total matching articles
-      const countQuery = `
-        SELECT COUNT(*) AS totalCount 
-        FROM and_cirec.cr_articles 
-        WHERE ${cb1 ? 'CONTAINS((ar_title, ar_content), @keyword)' : 'ar_title LIKE @keyword OR ar_content LIKE @keyword'}
-      `;
-
-      const countResult = await executeQuery(countQuery, {
-        keyword: cb1 ? `"${sanitizedWord}"` : `%${sanitizedWord}%`,
-      });
-      const totalArticles = countResult.recordset[0].totalCount;
-
-      // Search query
+      // Unified query with total count and pagination
       const searchQuery = `
         WITH RankedArticles AS (
           SELECT 
@@ -67,17 +55,17 @@ export const searchDatabaseOptions: RouteOptions = {
             ar_title, 
             ar_datetime,
             ${cb1 ? 'KEY_TBL.RANK,' : ''}
-            ROW_NUMBER() OVER (ORDER BY ${cb1 ? 'KEY_TBL.RANK DESC' : 'ar_datetime DESC'}) AS RowNum
+            ROW_NUMBER() OVER (ORDER BY ${cb1 ? 'KEY_TBL.RANK DESC' : 'ar_datetime DESC'}) AS RowNum,
+            COUNT(*) OVER() AS TotalCount
           FROM and_cirec.cr_articles AS FT_TBL 
           ${cb1 ? `
             INNER JOIN CONTAINSTABLE(and_cirec.cr_articles, (ar_title, ar_content), @keyword) AS KEY_TBL 
             ON FT_TBL.ar_id = KEY_TBL.[KEY]
           ` : 'WHERE ar_title LIKE @keyword OR ar_content LIKE @keyword'}
         )
-        SELECT ar_id, ar_title, ar_datetime${cb1 ? ', RANK' : ''}
+        SELECT ar_id, ar_title, ar_datetime${cb1 ? ', RANK' : ''}, TotalCount
         FROM RankedArticles
         WHERE RowNum BETWEEN @offset + 1 AND @offset + @pageSize
-        ORDER BY ${cb1 ? 'RANK DESC' : 'ar_datetime DESC'}
       `;
 
       const articlesResult = await executeQuery(searchQuery, {
@@ -86,25 +74,27 @@ export const searchDatabaseOptions: RouteOptions = {
         pageSize,
       });
 
+      const totalArticles = articlesResult.recordset[0]?.TotalCount || 0;
+
       // Check for suggested keywords
       let suggestedKeyword = null;
-      const suggestedQuery = `
-        SELECT TOP 1 sk_suggestedkey 
-        FROM and_cirec.cr_searchkeyword 
-        WHERE sk_userkey = @keyword 
-          AND sk_display = 'True' 
-          AND sk_suggestedkey != ''
-      `;
-      const suggestedResult = await executeQuery(suggestedQuery, {
-        keyword: sanitizedWord,
-      });
-
-      if (suggestedResult.recordset.length > 0) {
-        suggestedKeyword = suggestedResult.recordset[0].sk_suggestedkey;
-      }
-
-      // If no results, insert the keyword for tracking
       if (totalArticles === 0) {
+        const suggestedQuery = `
+          SELECT TOP 1 sk_suggestedkey 
+          FROM and_cirec.cr_searchkeyword 
+          WHERE sk_userkey = @keyword 
+            AND sk_display = 'True' 
+            AND sk_suggestedkey != ''
+        `;
+        const suggestedResult = await executeQuery(suggestedQuery, {
+          keyword: sanitizedWord,
+        });
+
+        if (suggestedResult.recordset.length > 0) {
+          suggestedKeyword = suggestedResult.recordset[0].sk_suggestedkey;
+        }
+
+        // Insert the keyword for tracking if not exists
         const insertQuery = `
           IF NOT EXISTS (
             SELECT 1 FROM and_cirec.cr_searchkeyword 
@@ -124,11 +114,11 @@ export const searchDatabaseOptions: RouteOptions = {
         .response({
           success: totalArticles > 0,
           totalArticles,
-          articles: articlesResult.recordset,
+          articles: articlesResult.recordset.map(({ TotalCount, ...article }) => article), // Exclude TotalCount from the response
           pagination: {
             currentPage: Number(page),
             totalPages: Math.ceil(totalArticles / pageSize),
-            pageSize,
+            pageSize: Number(pageSize),
           },
           suggestedKeyword,
         })
@@ -144,3 +134,4 @@ export const searchDatabaseOptions: RouteOptions = {
     }
   },
 };
+
