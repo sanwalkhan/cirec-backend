@@ -81,7 +81,7 @@ const init = async () => {
             "x-default": "demo-api-key",
           },
         },
-        schemes: [config.enviornment === "development" ? "http" : "https"],
+        schemes: [config.enviornment === "production" ? "http" : "https"],
         host: process.env.URL,
         cors: true,
         tryItOutEnabled: true,
