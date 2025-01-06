@@ -3,6 +3,7 @@ import { Request, RouteOptions } from "@hapi/hapi";
 import Joi from "joi";
 import { executeQuery } from "../../../../common/db";
 import { EmailType, sendEmail } from "../../../../common/handlers";
+import { calculateBilling } from "../../../../common/helpers";
 import { config } from "../../../../common/index";
 import { logger } from "../../../../common/logger";
 
@@ -16,53 +17,16 @@ export const signUpUserOptions: RouteOptions = {
     },
     validate: {
         payload: Joi.object({
-            // Personal Details (mostly kept the same)
-            title: Joi.string().max(50).optional().trim().messages({
-                "string.max": "Title cannot exceed 50 characters.",
-            }),
-            firstName: Joi.string().max(50).required().trim().messages({
-                "string.max": "First Name cannot exceed 50 characters.",
-                "any.required": "First Name is required.",
-            }),
-            lastName: Joi.string().max(50).required().trim().messages({
-                "string.max": "Last Name cannot exceed 50 characters.",
-                "any.required": "Last Name is required.",
-            }),
-            company: Joi.string().max(100).optional().trim().messages({
-                "string.max": "Company name cannot exceed 100 characters.",
-            }),
-            telephoneNumber: Joi.string()
-                .pattern(/^\+?[0-9]{7,15}$/)
-                .optional()
-                .messages({
-                    "string.pattern.base": "Telephone number must be valid, containing 7 to 15 digits.",
-                }),
-            emailAddress: Joi.string().email().required().lowercase().trim().messages({
-                "string.email": "E-Mail address must be a valid email.",
-                "any.required": "E-Mail address is required.",
-            }),
-            userName: Joi.string().min(3).max(30).required().trim().messages({
-                "string.min": "User Name must be at least 3 characters.",
-                "string.max": "User Name cannot exceed 30 characters.",
-                "any.required": "User Name is required.",
-            }),
-            password: Joi.string().min(8).max(200).required().messages({
-                "string.min": "Password must be at least 8 characters.",
-                "string.max": "Password cannot exceed 200 characters.",
-                "any.required": "Password is required.",
-            }),
-            retypePassword: Joi.string().required().valid(Joi.ref("password")).messages({
-                "any.only": "Passwords do not match.",
-                "any.required": "Retype Password is required.",
-            }),
-
-            // Account and Service Details (with some modifications)
-            accountType: Joi.string().valid("Corporate", "Single").required().messages({
-                "any.only": "Please select a valid account type.",
-                "any.required": "Account Type is required.",
-            }),
-
-            // Monthly News - allow more flexible selection
+            title: Joi.string().max(50).optional().trim(),
+            firstName: Joi.string().max(50).required().trim(),
+            lastName: Joi.string().max(50).required().trim(),
+            company: Joi.string().max(100).optional().trim(),
+            telephoneNumber: Joi.string().pattern(/^\+?[0-9]{7,15}$/).optional(),
+            emailAddress: Joi.string().email().required().lowercase().trim(),
+            userName: Joi.string().min(3).max(30).required().trim(),
+            password: Joi.string().min(8).max(200).required(),
+            retypePassword: Joi.string().required().valid(Joi.ref("password")),
+            accountType: Joi.string().valid("Corporate", "Single").required(),
             monthlyNews: Joi.object({
                 selected: Joi.boolean().required(),
                 duration: Joi.when('selected', {
@@ -71,21 +35,19 @@ export const signUpUserOptions: RouteOptions = {
                     otherwise: Joi.forbidden()
                 })
             }).optional(),
-
-            additionalCopies: Joi.when('selected', {
+            additionalCopies: Joi.object({
+                selected: Joi.boolean().required(),
+                copies: Joi.when('selected', {
+                    is: true,
+                    then: Joi.number().valid(1, 2, 3, 4).required(),
+                    otherwise: Joi.forbidden()
+                })
+            }).optional(),
+            additionalEmails: Joi.when('additionalCopies.selected', {
                 is: true,
-                then: Joi.number().integer().min(0).max(4).optional().default(0),
+                then: Joi.array().items(Joi.string().email()).length(Joi.ref('additionalCopies.copies')).required(),
                 otherwise: Joi.forbidden()
             }),
-            additionalEmails: Joi.when('additionalCopies', {
-                is: Joi.number().greater(0),
-                then: Joi.array().items(
-                    Joi.string().email()
-                ).length(Joi.ref('additionalCopies')).optional(),
-                otherwise: Joi.forbidden()
-            }),
-
-            // Search Engine Access - modified to be more flexible
             searchEngineAccess: Joi.object({
                 selected: Joi.boolean().required(),
                 duration: Joi.when('selected', {
@@ -94,8 +56,6 @@ export const signUpUserOptions: RouteOptions = {
                     otherwise: Joi.forbidden()
                 })
             }).optional(),
-
-            // Statistical Database Access - similar approach
             statisticalDatabaseAccess: Joi.object({
                 selected: Joi.boolean().required(),
                 duration: Joi.when('selected', {
@@ -104,79 +64,31 @@ export const signUpUserOptions: RouteOptions = {
                     otherwise: Joi.forbidden()
                 })
             }).optional(),
-
-            // Other Reports - allow selecting multiple
             otherReports: Joi.array().items(
                 Joi.string().valid(
                     "Central European Olefins & Polyolefin Production",
                     "Polish Chemical Production"
                 )
             ).optional(),
-
-            // Payment Type
-            paymentType: Joi.string().valid("Credit card", "Through invoice").required().messages({
-                "any.only": "Payment Type must be Credit card or Through invoice.",
-                "any.required": "Payment Type selection is required.",
-            }),
+            paymentType: Joi.string().valid("Credit card", "Through invoice").required(),
         }).unknown(false),
-    },
-
-    response: {
-        schema: Joi.object({
-            token: Joi.string(),
-            user: Joi.object().unknown(),
-            error: Joi.string(),
-            success: Joi.boolean(),
-            message: Joi.string(),
-        }),
     },
     handler: async (request: Request, h) => {
         try {
-            const {
-                title,
-                firstName,
-                lastName,
-                company,
-                telephoneNumber,
-                emailAddress,
-                userName,
-                password,
-                retypePassword,
-                accountType,
-                monthlyNews,
-                searchEngineAccess,
-                statisticalDatabaseAccess,
-                otherReports,
-                paymentType,
-            } = request.payload as any;
-
-            // Check if passwords match
-            if (password !== retypePassword) {
-                return h.response({ error: "Passwords do not match!" }).code(400);
-            }
-
-            // Check username for spaces
-            if (/\s/.test(userName)) {
-                return h.response({ error: "User Name should not contain any spaces!" }).code(400);
-            }
+            const payload = request.payload as any;
 
             // Check if the username or email already exists
-            const uscntResult = await executeQuery(
-                "SELECT COUNT(*) as count FROM and_cirec.cr_user WHERE us_username = @username",
-                { username: userName }
-            );
-            const uscnt = uscntResult.recordset[0].count;
+            const [uscntResult, emailcntResult] = await Promise.all([
+                executeQuery("SELECT COUNT(*) as count FROM and_cirec.cr_user WHERE us_username = @username", { username: payload.userName }),
+                executeQuery("SELECT COUNT(*) as count FROM and_cirec.cr_user WHERE us_email = @email", { email: payload.emailAddress })
+            ]);
 
-            const emailcntResult = await executeQuery(
-                "SELECT COUNT(*) as count FROM and_cirec.cr_user WHERE us_email = @email",
-                { email: emailAddress }
-            );
+            const uscnt = uscntResult.recordset[0].count;
             const emailcnt = emailcntResult.recordset[0].count;
 
-            // Handle errors based on username and email existence
             if (uscnt !== 0 || emailcnt !== 0) {
                 if (uscnt !== 0 && emailcnt !== 0) {
-                    return h.response({ error: "User name and Email already exists in the database" }).code(400);
+                    return h.response({ error: "User name and Email already exist in the database" }).code(400);
                 } else if (uscnt !== 0) {
                     return h.response({ error: "User name already exists in the database" }).code(400);
                 } else {
@@ -188,95 +100,80 @@ export const signUpUserOptions: RouteOptions = {
             const maxIdResult = await executeQuery("SELECT ISNULL(MAX(us_id), 0) + 1 as maxId FROM and_cirec.cr_user");
             const maxId = maxIdResult.recordset[0].maxId;
 
-            // Calculate total price and services
-            let totalPrice = 0;
-            const startDate = new Date();
-            let userGroups = "A,B,C,D,E,F,G";
-            let accountTypeCode = accountType === "Corporate" ? "C" : "S";
+            // Calculate billing
+            const { total, acType, mntot, seatot, sdatot, admntot, othretot, othretot1 } = await calculateBilling(payload);
 
             // Insert the new user into the database
             await executeQuery(
-                `
-            INSERT INTO and_cirec.cr_user (
-                us_id, us_title, us_fname, us_lname, us_comp, 
-                us_phone, us_email, us_username, us_pass, 
-                us_type, us_grp, us_pay
-            )
-            VALUES (
-                @id, @title, @firstName, @lastName, @company, 
-                @phone, @email, @username, @password, 
-                @accountType, @userGroups, @totalPrice
-            )
-            `,
+                `INSERT INTO and_cirec.cr_user (
+                    us_id, us_title, us_fname, us_lname, us_comp, 
+                    us_phone, us_email, us_username, us_pass, 
+                    us_type, us_grp, us_pay
+                ) VALUES (
+                    @id, @title, @firstName, @lastName, @company, 
+                    @phone, @email, @username, @password, 
+                    @accountType, @userGroups, @totalPrice
+                )`,
                 {
                     id: maxId,
-                    title: title || null,
-                    firstName: firstName,
-                    lastName: lastName,
-                    company: company || null,
-                    phone: telephoneNumber || null,
-                    email: emailAddress,
-                    username: userName,
-                    password: password,
-                    accountType: accountTypeCode,
-                    userGroups: userGroups,
-                    totalPrice: totalPrice
+                    title: payload.title || null,
+                    firstName: payload.firstName,
+                    lastName: payload.lastName,
+                    company: payload.company || null,
+                    phone: payload.telephoneNumber || null,
+                    email: payload.emailAddress,
+                    username: payload.userName,
+                    password: payload.password,
+                    accountType: acType,
+                    userGroups: "A,B,C,D,E,F,G",
+                    totalPrice: total
                 }
             );
 
-            //send sign up alert mail to admin
-            try {
-                await sendEmail(
-                    config.enviornment === "development" ? config.supportEmailReceiver : "andrew@cirec.net",
-                    "Test Developemt: New Cirec Account Registration",
-                    "new-registration-alter",
-                    EmailType.NEW_REGISTRATION_ALERT,
-                    {
-                        fname: firstName,
-                        lname: lastName,
-                    }
-                );
-            } catch (error) {
-                return h.response({ success: false, message: "Invalid email address No such User" }).code(400);
-            }
-
-
             // Handle Monthly News Registration
-            if (monthlyNews?.selected) {
+            if (payload.monthlyNews?.selected) {
+                const startDate = new Date();
                 const mnEndDate = new Date(startDate);
-                mnEndDate.setFullYear(
-                    startDate.getFullYear() + (monthlyNews.duration === "1 year" ? 1 : 2)
-                );
+                mnEndDate.setFullYear(startDate.getFullYear() + (payload.monthlyNews.duration === "1 year" ? 1 : 2));
 
                 const maxMnId = await executeQuery("SELECT ISNULL(MAX(um_id), 0) + 1 as maxId FROM and_cirec.cr_user_mnews");
 
                 await executeQuery(
                     `INSERT INTO and_cirec.cr_user_mnews (
-                            um_id, um_us_username, um_extra_copies, 
-                            um_start_date, um_end_date
-                        ) VALUES (
-                            @mnId, @username, @extraCopies, 
-                            @startDate, @endDate
-                        )`,
+                        um_id, um_us_username, um_extra_copies, 
+                        um_start_date, um_end_date, um_mon_amount
+                    ) VALUES (
+                        @mnId, @username, @extraCopies, 
+                        @startDate, @endDate, @mntotal
+                    )`,
                     {
                         mnId: maxMnId.recordset[0].maxId,
-                        username: userName,
-                        extraCopies: monthlyNews.additionalCopies || 0,
+                        username: payload.userName,
+                        extraCopies: payload.additionalCopies?.copies || 0,
                         startDate: startDate,
-                        endDate: mnEndDate
+                        endDate: mnEndDate,
+                        mntotal: mntot
                     }
                 );
 
-                // TODO: Handle additional email registrations for copies
-                if (monthlyNews.additionalEmails) {
-                    // Implement email registration logic
+                if (payload.additionalCopies?.selected) {
+                    await executeQuery(
+                        `UPDATE and_cirec.cr_user_mnews 
+                        SET um_ext_amount = @admntot 
+                        WHERE um_us_username = @username`,
+                        {
+                            admntot: admntot,
+                            username: payload.userName
+                        }
+                    );
                 }
             }
 
             // Handle Search Engine Access Registration
-            if (searchEngineAccess?.selected) {
+            if (payload.searchEngineAccess?.selected) {
+                const startDate = new Date();
                 const seaEndDate = new Date(startDate);
-                switch (searchEngineAccess.duration) {
+                switch (payload.searchEngineAccess.duration) {
                     case "3 months": seaEndDate.setMonth(startDate.getMonth() + 3); break;
                     case "6 months": seaEndDate.setMonth(startDate.getMonth() + 6); break;
                     case "12 months": seaEndDate.setFullYear(startDate.getFullYear() + 1); break;
@@ -288,48 +185,49 @@ export const signUpUserOptions: RouteOptions = {
                 await executeQuery(
                     `INSERT INTO and_cirec.cr_user_sea (
                         usea_id, usea_us_username, 
-                        usea_start_date, usea_end_date
-                        ) VALUES (
-                            @seaId, @username, 
-                            @startDate, @endDate
-                        )`,
+                        usea_start_date, usea_end_date, usea_amount
+                    ) VALUES (
+                        @seaId, @username, 
+                        @startDate, @endDate, @seatotal
+                    )`,
                     {
                         seaId: maxSeaId.recordset[0].maxId,
-                        username: userName,
+                        username: payload.userName,
                         startDate: startDate,
-                        endDate: seaEndDate
+                        endDate: seaEndDate,
+                        seatotal: seatot
                     }
                 );
             }
 
             // Handle Statistical Database Access Registration
-            if (statisticalDatabaseAccess?.selected) {
+            if (payload.statisticalDatabaseAccess?.selected) {
+                const startDate = new Date();
                 const sdaEndDate = new Date(startDate);
-                sdaEndDate.setFullYear(
-                    startDate.getFullYear() + (statisticalDatabaseAccess.duration === "1 year" ? 1 : 2)
-                );
+                sdaEndDate.setFullYear(startDate.getFullYear() + (payload.statisticalDatabaseAccess.duration === "1 year" ? 1 : 2));
 
                 const maxSdaId = await executeQuery("SELECT ISNULL(MAX(usda_id), 0) + 1 as maxId FROM and_cirec.cr_user_sda");
 
                 await executeQuery(
                     `INSERT INTO and_cirec.cr_user_sda (
                         usda_id, usda_us_username, 
-                        usda_start_date, usda_end_date
+                        usda_start_date, usda_end_date, usda_amount
                     ) VALUES (
                         @sdaId, @username, 
-                        @startDate, @endDate
+                        @startDate, @endDate, @sdatotal
                     )`,
                     {
                         sdaId: maxSdaId.recordset[0].maxId,
-                        username: userName,
+                        username: payload.userName,
                         startDate: startDate,
-                        endDate: sdaEndDate
+                        endDate: sdaEndDate,
+                        sdatotal: sdatot
                     }
                 );
             }
 
             // Handle Other Reports
-            if (otherReports && otherReports.length > 0) {
+            if (payload.otherReports && payload.otherReports.length > 0) {
                 const maxSeatId = await executeQuery("SELECT ISNULL(MAX(seat_id), 0) + 1 as maxId FROM and_cirec.cr_user_seat");
 
                 await executeQuery(
@@ -342,33 +240,51 @@ export const signUpUserOptions: RouteOptions = {
                     )`,
                     {
                         seatId: maxSeatId.recordset[0].maxId,
-                        username: userName,
-                        sep: otherReports.includes("Central European Olefins & Polyolefin Production") ? "Y" : "N",
-                        rtpa: otherReports.includes("Polish Chemical Production") ? "Y" : "N"
+                        username: payload.userName,
+                        sep: payload.otherReports.includes("Central European Olefins & Polyolefin Production") ? "Y" : "N",
+                        rtpa: payload.otherReports.includes("Polish Chemical Production") ? "Y" : "N"
+                    }
+                );
+
+                await executeQuery(
+                    `UPDATE and_cirec.cr_user_seat 
+                    SET seat_sep_amount = @othretot, 
+                        seat_rtpa_amount = @othretot1 
+                    WHERE seat_us_username = @username`,
+                    {
+                        othretot: othretot,
+                        othretot1: othretot1,
+                        username: payload.userName
                     }
                 );
             }
 
-            // Send confirmation email (placeholder)
-            // You would replace this with actual email sending logic
+            // Send confirmation email
             try {
-                // Simulate email sending
-                logger.info('sing-up', `Confirmation email sent to ${emailAddress}`);
+                await sendEmail(
+                    config.enviornment === "development" ? config.supportEmailReceiver : "andrew@cirec.net",
+                    "New Cirec Account Registration",
+                    "new-registration-alert",
+                    EmailType.NEW_REGISTRATION_ALERT,
+                    {
+                        fname: payload.firstName,
+                        lname: payload.lastName,
+                    }
+                );
             } catch (emailError) {
-                logger.error('sing-up', `Failed to send confirmation email: ${emailError}`);
+                logger.error('signup-handler', `Failed to send confirmation email: ${emailError}`);
             }
-
-            //@todo bill calculation functionality is incomplete 
 
             return {
                 user: {
-                    userName: userName,
-                    firstName: firstName,
-                    lastName: lastName,
-                    email: emailAddress,
-                    accountType: accountType,
+                    userName: payload.userName,
+                    firstName: payload.firstName,
+                    lastName: payload.lastName,
+                    email: payload.emailAddress,
+                    accountType: payload.accountType,
+                    totalBill: total
                 },
-                message: "Registration Successful! Please check your email for confirmation.",
+                message: "Registration Successful!",
             };
         } catch (error) {
             logger.error(`signup-handler`, `Handler failure: ${error}`);

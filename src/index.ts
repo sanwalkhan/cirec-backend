@@ -7,22 +7,21 @@ import Vision from "@hapi/vision";
 import Jwt from "hapi-auth-jwt2";
 import * as HapiSwagger from "hapi-swagger";
 import qs from "qs";
+import paypal from "paypal-rest-sdk";
 import { setupRoutes } from "./api/routes";
 import { config } from "./common/index";
 import { logger } from "./common/logger";
-import paypal from "paypal-rest-sdk";
-// import { fetchTables } from "./common/db";
 
 paypal.configure({
-  mode: "sandbox", // Change to 'live' for production
+  mode: process.env.PAYPAL_MODE || "sandbox", // 'sandbox' or 'live'
   client_id: process.env.PAYPAL_CLIENT_ID as string,
   client_secret: process.env.PAYPAL_CLIENT_SECRET as string,
 });
 
 const init = async () => {
   const server = Hapi.server({
-    port: process.env.PORT,
-    host: process.env.HOST,
+    port: process.env.PORT || 3000,
+    host: process.env.HOST || "localhost",
     query: {
       parser: (query) => qs.parse(query),
     },
@@ -62,12 +61,8 @@ const init = async () => {
   const apiDescription = "You are viewing the reference docs for the Cirec API.";
 
   await server.register([
-    {
-      plugin: Inert as any,
-    },
-    {
-      plugin: Vision,
-    },
+    { plugin: Inert as any },
+    { plugin: Vision },
     {
       plugin: HapiSwagger,
       options: <HapiSwagger.RegisterOptions>{
@@ -81,8 +76,8 @@ const init = async () => {
             "x-default": "demo-api-key",
           },
         },
-        schemes: [config.enviornment === "production" ? "http" : "https"],
-        host: process.env.URL,
+        schemes: [config.enviornment === "production" ? "https" : "http"],
+        host: process.env.URL || "localhost",
         cors: true,
         tryItOutEnabled: true,
         documentationPath: "/",
@@ -104,17 +99,16 @@ const init = async () => {
         },
       },
     },
-    {
-      plugin: Jwt,
-    },
+    { plugin: Jwt },
   ]);
 
-  const validate = async function (decoded: any, request: any, h: any) {
-    //@todo define validation function
+  const validate = async (decoded: any, _request: any, _h: any) => {
+    // Placeholder for JWT validation logic
+    return { isValid: true }; // Adjust based on your validation requirements
   };
 
   server.auth.strategy("jwt", "jwt", {
-    key: config.authSecret, // Never Share your secret key
+    key: config.authSecret,
     validate,
     verifyOptions: { algorithms: ["HS256"] },
     payloadKey: false,
@@ -123,9 +117,9 @@ const init = async () => {
   server.route({
     method: "POST",
     path: "/create-payment",
-    handler: async (request, h) => {
+    handler: async (request: Hapi.Request, h: Hapi.ResponseToolkit) => {
       const { amount, currency = "USD", description = "Test Payment" } =
-        request.payload as any;
+        request.payload as { amount: string; currency?: string; description?: string };
 
       const createPaymentJson = {
         intent: "sale",
@@ -144,7 +138,7 @@ const init = async () => {
 
       try {
         const payment = await new Promise((resolve, reject) => {
-          paypal.payment.create(createPaymentJson, (error: any, payment: unknown) => {
+          paypal.payment.create(createPaymentJson, (error, payment) => {
             if (error) return reject(error);
             resolve(payment);
           });
@@ -152,7 +146,7 @@ const init = async () => {
 
         const approvalUrl = (payment as any).links.find(
           (link: any) => link.rel === "approval_url"
-        ).href;
+        )?.href;
 
         return h.response({ approvalUrl }).code(200);
       } catch (error: any) {
@@ -168,10 +162,8 @@ const init = async () => {
   console.log("Server running on %s", server.info.uri);
 };
 
-// fetchTables();
-
 process.on("unhandledRejection", (err) => {
-  console.log(err);
+  console.error(err);
   process.exit(1);
 });
 

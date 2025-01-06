@@ -25,7 +25,7 @@ export async function calculateBilling(options: any) {
   let mntot = 0;
   let seatot = 0;
   let sdatot = 0;
-  let admntot = 0;
+  let admntot = 0; //additional copies total
   let othretot = 0;
   let othretot1 = 0;
   let acType = 'S'; // Default to Single Account
@@ -58,18 +58,12 @@ export async function calculateBilling(options: any) {
     }
   };
 
-  // Corporate Account Type
-  if (options.accountType === 'Corporate') {
-    acType = 'C';
-    total += mntot + seatot + sdatot
-  }
-
   // Monthly News
   if (options.monthlyNews) {
     const monthlyNewsId = options.monthlyNews.duration === '1 year'
       ? PRICE_IDS.monthlyNews['1 year']
       : PRICE_IDS.monthlyNews['2 years'];
-    total += await getPriceFromDatabase(monthlyNewsId);
+    mntot += await getPriceFromDatabase(monthlyNewsId);
   } else if (options.accountType === 'Corporate') {
     mntot += await getPriceFromDatabase(PRICE_IDS.monthlyNews['1 year']);
   }
@@ -78,14 +72,15 @@ export async function calculateBilling(options: any) {
   if (options.additionalCopies) {
     for (let index = 0; index < options.additionalCopies.copies; index++) {
       const additionalCopyId = PRICE_IDS.additionalCopies[index + 1];
-      total += await getPriceFromDatabase(additionalCopyId);
+      admntot += await getPriceFromDatabase(additionalCopyId);
     }
+    total += admntot
   }
 
   // Search Engine Access
   if (options.searchEngineAccess) {
     const searchEngineId = PRICE_IDS.searchEngineAccess[options.searchEngineAccess.duration];
-    total += await getPriceFromDatabase(searchEngineId);
+    seatot += await getPriceFromDatabase(searchEngineId);
   } else if (options.accountType === 'Corporate') {
     seatot += await getPriceFromDatabase(7);  // Search Engine
   }
@@ -95,7 +90,7 @@ export async function calculateBilling(options: any) {
     const dbAccessId = options.statisticalDatabaseAccess.duration === '1 year'
       ? PRICE_IDS.statisticalDatabaseAccess['1 year']
       : PRICE_IDS.statisticalDatabaseAccess['2 years'];
-    total += await getPriceFromDatabase(dbAccessId);
+    sdatot += await getPriceFromDatabase(dbAccessId);
   } else if (options.accountType === 'Corporate') {
     sdatot += await getPriceFromDatabase(11); // Statistical DB
   }
@@ -105,9 +100,18 @@ export async function calculateBilling(options: any) {
   if (options.otherReports && options.otherReports.length > 0) {
     for (const report of options.otherReports) {
       const reportId = PRICE_IDS.otherReports[report];
-      total += await getPriceFromDatabase(reportId);
+      if (reportId === 13) {
+        othretot = await getPriceFromDatabase(reportId);
+        total += othretot
+      }
+      if (reportId === 14) {
+        othretot1 = await getPriceFromDatabase(reportId);
+        total += othretot1
+      }
     }
   }
+
+  total += mntot + seatot + sdatot
 
   return {
     total, acType, mntot, seatot, sdatot, admntot, othretot, othretot1,
