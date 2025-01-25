@@ -9,7 +9,7 @@ export const getStatDbOptions: RouteOptions = {
     notes: "Handles statistical database page data and operations",
     validate: {
         headers: Joi.object({
-            authorization: Joi.string().required(),
+            // Removed authorization requirement
         }).unknown(),
     },
     plugins: {
@@ -64,47 +64,7 @@ export const getStatDbOptions: RouteOptions = {
     },
     handler: async (request, h) => {
         try {
-            
-        // const session = JSON.parse(request.headers.authorization)?.session;
-        
-        let session;
-
-        try {
-          // Get the authorization header
-          const authHeader = request.headers.authorization as string;
-          
-          // Check if the authHeader is already a parsed object
-          session = typeof authHeader === 'object' ? authHeader : JSON.parse(authHeader);
-          
-          // Log for debugging
-          console.log("Session Data:", session);
-          console.log("CRAUTHLOGGED value:", session.CRAUTHLOGGED);
-  
-        } catch (e) {
-          console.error("Session parsing error:", e);
-          return h.response({
-            success: false,
-            message: "Invalid session format",
-          }).code(400);
-        }
-  
-        console.log(session.CRAUTHLOGGED)
-
-        console.log(session.CRAUTHLOGGED !== "YES")
-
-        if (!session.CRAUTHLOGGED || session.CRAUTHLOGGED !== "YES") {
-                return h.response({
-                    success: false,
-                    message: "Authentication required",
-                }).code(401);
-            }
-
-            if (!session.CRAUTHSDA || session.CRAUTHSDA !== "YES") {
-                return h.response({
-                    success: false,
-                    message: "Access denied: SDA permission required",
-                }).code(403);
-            }
+            // Removed session authentication checks
 
             // Get page content
             const pageContentResult = await executeQuery(
@@ -112,13 +72,10 @@ export const getStatDbOptions: RouteOptions = {
             );
             const pageContent = pageContentResult.recordset.map(row => row.pgc_content).filter(c => c);
 
-            // Build product queries based on authorization
-            const productFilter = session.CRPROAUTH ?
-                `WHERE pr_id in (${session.CRPROAUTH})` : '';
-
+            // Removed product filter based on session authorization
             // Get products
             const productsResult = await executeQuery(
-                `SELECT pr_id, pr_name FROM and_cirec.cr_rep_products ${productFilter} ORDER BY pr_name`
+                `SELECT pr_id, pr_name FROM and_cirec.cr_rep_products ORDER BY pr_name`
             );
 
             // Get companies
@@ -132,7 +89,6 @@ export const getStatDbOptions: RouteOptions = {
             SELECT DISTINCT p.pr_id, p.pr_name 
             FROM and_cirec.cr_rep_products p
             JOIN cr_rep_russia_domestic_sales cp ON p.pr_id = cp.pro_id
-            ${productFilter}
             ORDER BY p.pr_name
         `;
             const tradeProductsResult = await executeQuery(tradeProductsQuery);
@@ -142,7 +98,6 @@ export const getStatDbOptions: RouteOptions = {
             SELECT DISTINCT p.pr_id, p.pr_name 
             FROM and_cirec.cr_rep_products p
             JOIN cr_rep_polishchemical cp ON p.pr_id = cp.pro_id
-            ${productFilter}
             ORDER BY p.pr_name
         `;
             const polishProductsResult = await executeQuery(polishProductsQuery);
@@ -152,7 +107,6 @@ export const getStatDbOptions: RouteOptions = {
             SELECT DISTINCT p.pr_id, p.pr_name 
             FROM and_cirec.cr_rep_products p
             JOIN cr_rep_olypoly cp ON p.pr_id = cp.pro_id
-            ${productFilter}
             ORDER BY p.pr_name
         `;
             const olyPolyProductsResult = await executeQuery(olyPolyProductsQuery);
