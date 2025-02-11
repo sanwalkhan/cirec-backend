@@ -12,6 +12,7 @@ import * as statDbEndpoints from "./endpoints/statdb";
 import * as userEndpoints from "./endpoints/subscription";
 import * as upcomingEventsEndpoints from "./endpoints/upcoming-events";
 import * as userProfileEndpoints from "./endpoints/user";
+import * as loginOptions from "./endpoints/Admin/Login"
 
 export const setupRoutes = (server: Server) => {
   //Default Page
@@ -201,4 +202,10 @@ export const setupRoutes = (server: Server) => {
     path: '/statdb/report-olefins-polyolefins',
     options: generateReportsEndpoints.getOlefinsPolyolefinReportOptions,
   });
+
+    server.route({
+    method: 'POST',
+    path: '/admin/login',
+    options: loginOptions.loginOptions
+  })
 };
