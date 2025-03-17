@@ -1,4 +1,4 @@
-import { Server } from "@hapi/hapi";
+import { ResponseToolkit, Server } from "@hapi/hapi";
 import * as aboutUsEndpoint from "./endpoints/about";
 import * as articleEndpoints from "./endpoints/article";
 import * as chemicalLinksEndpoints from "./endpoints/chemical-links";
@@ -13,6 +13,15 @@ import * as userEndpoints from "./endpoints/subscription";
 import * as upcomingEventsEndpoints from "./endpoints/upcoming-events";
 import * as userProfileEndpoints from "./endpoints/user";
 import * as loginOptions from "./endpoints/Admin/Login"
+import { addLinkRedirectHandler, deleteLinkHandler, editLinkRedirectHandler, getLinksHandler, updateLinkDisplayHandler } from "./endpoints/Admin/links/links";
+import { addEventRedirectHandler, deleteEventHandler, editEventRedirectHandler, getEventsHandler, updateEventDisplayHandler } from "./endpoints/Admin/events/events";
+import { createUserHandler, deleteUserHandler, getAllUsersHandler, getUserByIdHandler, updateUserHandler, updateUserPaymentStatusHandler, updateUserStatusHandler } from "./endpoints/Admin/users/users";
+import { getUserAccessInfoHandler, updateUserAccessHandler } from "./endpoints/Admin/users/usersaccess";
+import { changePasswordOptions } from "./endpoints/Admin/chnagepass/changepass";
+import { addProductOptions, getProductsOptions, updateProductDisplayOptions } from "./endpoints/Admin/products/products";
+import { addCompanyOptions, getCompaniesOptions, getCountriesOptions, updateCompanyDisplayOptions } from "./endpoints/Admin/company/company";
+import { deleteContactOptions, getAllContactsOptions } from "./endpoints/Admin/contact/contact";
+import { getOptionsHandler, getPriceHandler, getPriceOptionsHandler, updatePriceHandler } from "./endpoints/Admin/costmanagement/cost";
 
 export const setupRoutes = (server: Server) => {
   //Default Page
@@ -21,6 +30,8 @@ export const setupRoutes = (server: Server) => {
     path: "/default",
     options: defaultPage.getDefaultPageContentOptions,
   });
+
+  
 
   //Registration & Authentication
   server.route({
@@ -202,10 +213,402 @@ export const setupRoutes = (server: Server) => {
     path: '/statdb/report-olefins-polyolefins',
     options: generateReportsEndpoints.getOlefinsPolyolefinReportOptions,
   });
-
-    server.route({
+  server.route({
     method: 'POST',
     path: '/admin/login',
     options: loginOptions.loginOptions
+  });
+  
+  server.route({
+    method: 'GET',
+    path: '/admin/links',
+    // options: { auth: "admin" },
+    handler: getLinksHandler
+  });
+  
+  server.route({
+    method: "PUT",
+    path: "/admin/links/display",
+    // options: {
+    //   auth: "admin",
+    //   validate: {
+    //     payload: Joi.object({
+    //       lkId: Joi.string().required(),
+    //       display: Joi.string().valid("0", "1").required()
+    //     })
+    //   }
+    // },
+    handler: updateLinkDisplayHandler
+  });
+  
+  server.route({
+    method: "DELETE",
+    path: "/admin/links/{lkId}",
+    // options: {
+    //   auth: "admin",
+    //   validate: {
+    //     params: Joi.object({
+    //       lkId: Joi.string().required()
+    //     })
+    //   }
+    // },
+    handler: deleteLinkHandler
+  });
+  
+  server.route({
+    method: "GET",
+    path: "/admin/links/add",
+    // options: { auth: "admin" },
+    handler: addLinkRedirectHandler
+  });
+  
+  server.route({
+    method: "GET",
+    path: "/admin/links/edit/{lkId}",
+    // options: {
+    //   auth: "admin",
+    //   validate: {
+    //     params: Joi.object({
+    //       lkId: Joi.string().required()
+    //     })
+    //   }
+    // },
+    handler: editLinkRedirectHandler
+  });
+
+
+
+  server.route({
+    method: "GET",
+    path: "/admin/events",
+    // options: { auth: "admin" },
+    handler: getEventsHandler
   })
-};
+
+
+  server.route({
+    method: "PUT",
+    path: "/admin/events/display",
+    // options: {
+    //   auth: "admin",
+    //   validate: {
+    //     payload: Joi.object({
+    //       evId: Joi.string().required(),
+    //       display: Joi.string().valid("0", "1").required()
+    //     })
+    //   }
+    // },
+    handler: updateEventDisplayHandler
+  })
+
+
+  server.route({
+    method: "DELETE",
+    path: "/admin/events/{evId}",
+    // options: {
+    //   auth: "admin",
+    //   validate: {
+    //     params: Joi.object({
+    //       evId: Joi.string().required()
+    //     })
+    //   }
+    // },
+    handler: deleteEventHandler
+  })
+
+
+  server.route({
+    method: "GET",
+    path: "/admin/events/add",
+    // options: { auth: "admin" },
+    handler: addEventRedirectHandler
+  })
+
+
+  server.route({
+    method: "GET",
+    path: "/admin/events/edit/{evId}",
+    // options: {
+    //   auth: "admin",
+    //   validate: {
+    //     params: Joi.object({
+    //       evId: Joi.string().required()
+    //     })
+    //   }
+    // },
+    handler: editEventRedirectHandler
+  
+  })
+
+
+
+  server.route({
+    method: "GET",
+    path: "/admin/users",
+    // options: { auth: "admin" },
+    handler: getAllUsersHandler
+  });
+
+  // Get user by ID
+  server.route({
+    method: "GET",
+    path: "/admin/users/{userId}",
+    // options: {
+    //   auth: "admin",
+    //   validate: {
+    //     params: Joi.object({
+    //       userId: Joi.string().required()
+    //     })
+    //   }
+    // },
+    handler: getUserByIdHandler
+  });
+
+    // Create new user
+    server.route({
+      method: "POST",
+      path: "/admin/users",
+      // options: {
+      //   auth: "admin",
+      //   validate: {
+      //     payload: Joi.object({
+      //       // Add validation schema here
+      //     })
+      //   }
+      // },
+      handler: createUserHandler
+    });
+
+    // Update user
+    server.route({
+      method: "PUT",
+      path: "/admin/users/{userId}",
+      // options: {
+      //   auth: "admin",
+      //   validate: {
+      //     params: Joi.object({
+      //       userId: Joi.string().required()
+      //     }),
+      //     payload: Joi.object({
+      //       // Add validation schema here
+      //     })
+      //   }
+      // },
+      handler: updateUserHandler
+    });
+
+    // Delete user
+    server.route({
+      method: "DELETE",
+      path: "/admin/users/{userId}",
+      // options: {
+      //   auth: "admin",
+      //   validate: {
+      //     params: Joi.object({
+      //       userId: Joi.string().required()
+      //     })
+      //   }
+      // },
+      handler: deleteUserHandler
+    });
+
+    // Update user status
+    server.route({
+      method: "PUT",
+      path: "/admin/users/{userId}/status",
+      // options: {
+      //   auth: "admin",
+      //   validate: {
+      //     params: Joi.object({
+      //       userId: Joi.string().required()
+      //     }),
+      //     payload: Joi.object({
+      //       status: Joi.boolean().required()
+      //     })
+      //   }
+      // },
+      handler: updateUserStatusHandler
+    });
+
+    // Update user payment status
+    server.route({
+      method: "PUT",
+      path: "/admin/users/{userId}/payment",
+      // options: {
+      //   auth: "admin",
+      //   validate: {
+      //     params: Joi.object({
+      //       userId: Joi.string().required()
+      //     }),
+      //     payload: Joi.object({
+      //       paid: Joi.boolean().required()
+      //     })
+      //   }
+      // },
+      handler: updateUserPaymentStatusHandler
+    });
+
+
+    server.route({
+      method: "GET",
+      path: "/admin/users/{userId}/access",
+      // options: {
+      //   auth: "admin",
+      //   validate: {
+      //     params: Joi.object({
+      //       userId: Joi.string().required()
+      //     })
+      //   }
+      // },
+      handler: getUserAccessInfoHandler
+    });
+
+    // Update user access
+    server.route({
+      method: "PUT",
+      path: "/admin/users/{userId}/access",
+      // options: {
+      //   auth: "admin",
+      //   validate: {
+      //     params: Joi.object({
+      //       userId: Joi.string().required()
+      //     }),
+      //     payload: Joi.object({
+      //       username: Joi.string(),
+      //       mnewsAccess: Joi.boolean(),
+      //       mnewsDuration: Joi.number(),
+      //       additionalCopiesAccess: Joi.boolean(),
+      //       additionalCopiesCount: Joi.number(),
+      //       additionalCopiesEmails: Joi.array().items(Joi.string().email()),
+      //       seaAccess: Joi.boolean(),
+      //       seaDuration: Joi.number(),
+      //       sdaAccess: Joi.boolean(),
+      //       sdaDuration: Joi.number(),
+      //       otherReportsAccess: Joi.boolean(),
+      //       centralEuropeanReport: Joi.boolean(),
+      //       polishChemicalReport: Joi.boolean(),
+      //       removeMnews: Joi.boolean(),
+      //       removeAdditionalCopies: Joi.boolean(),
+      //       removeSea: Joi.boolean(),
+      //       removeSda: Joi.boolean(),
+      //       removeOtherReports: Joi.boolean()
+      //     })
+      //   }
+      // },
+      handler: updateUserAccessHandler
+    });
+
+
+
+    server.route({
+      method: 'POST',
+      path: '/admin/change-password',
+      options: changePasswordOptions
+    });
+
+
+
+    // Product management routes
+    server.route({
+      method: 'GET',
+      path: '/admin/products',
+      options: getProductsOptions
+    });
+    
+    server.route({
+      method: 'PUT',
+      path: '/admin/products/display',
+      options: updateProductDisplayOptions
+    });
+    
+    server.route({
+      method: 'POST',
+      path: '/admin/products',
+      options: addProductOptions
+    });
+
+
+    server.route({
+      method: "GET",
+      path: "/admin/companies",
+      options: getCompaniesOptions
+    });
+    
+    server.route({
+      method: "PUT",
+      path: "/admin/companies/display",
+      options: updateCompanyDisplayOptions
+    });
+    
+    server.route({
+      method: "POST",
+      path: "/admin/companies",
+      options: addCompanyOptions
+    });
+    
+    // Countries routes (for dropdown in Add Company form)
+    server.route({
+      method: "GET",
+      path: "/admin/countries",
+      options: getCountriesOptions
+    });
+
+
+    server.route({
+        method: 'GET',
+        path: '/admin/contacts',
+        options: getAllContactsOptions
+    })
+
+    server.route({
+      
+        method: 'DELETE',
+        path: '/admin/contacts/{id}',
+        options: deleteContactOptions
+    })
+
+
+    server.route({
+      
+        method: "GET",
+        path: "/api/admin/cost-management/options",
+        options: {
+          description: "Get all registration options",
+          tags: ["api", "Cost Management"],
+          handler: getOptionsHandler
+        }
+    })
+
+    server.route({
+      method: "GET",
+      path: "/api/admin/cost-management/options/{optionId}/prices",
+      options: {
+        description: "Get price options for a specific registration option",
+        tags: ["api", "Cost Management"],
+        },
+        handler: getPriceOptionsHandler
+    })
+
+    server.route({
+      method: "GET",
+      path: "/api/admin/cost-management/prices/{priceId}",
+      options: {
+        description: "Get price for a specific price option",
+        tags: ["api",  "Cost Management"],
+        handler: getPriceHandler
+      }
+    })
+
+
+    server.route({
+      method: "PUT",
+      path: "/api/admin/cost-management/prices/{priceId}",
+      options: {
+        description: "Update price for a specific price option",
+        tags: ["api", "Cost Management"],
+        handler: updatePriceHandler
+      }
+    })
+
+
+  };

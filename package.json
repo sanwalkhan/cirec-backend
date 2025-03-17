@@ -29,6 +29,7 @@
     "hapi-auth-jwt2": "^10.5.1",
     "hapi-pulse": "^3.0.1",
     "hapi-swagger": "^17.2.1",
+    "jsonwebtoken": "^9.0.2",
     "luxon": "^3.5.0",
     "module-alias": "^2.2.3",
     "mssql": "^11.0.1",
@@ -41,7 +42,7 @@
   },
   "devDependencies": {
     "@types/cache-manager": "^4.0.6",
-    "@types/jsonwebtoken": "^9.0.7",
+    "@types/jsonwebtoken": "^9.0.9",
     "@types/luxon": "^3.4.2",
     "@types/mssql": "^9.1.5",
     "@types/node": "^22.9.3",
