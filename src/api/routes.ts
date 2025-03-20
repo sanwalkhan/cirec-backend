@@ -14,14 +14,21 @@ import * as upcomingEventsEndpoints from "./endpoints/upcoming-events";
 import * as userProfileEndpoints from "./endpoints/user";
 import * as loginOptions from "./endpoints/Admin/Login"
 import { addLinkRedirectHandler, deleteLinkHandler, editLinkRedirectHandler, getLinksHandler, updateLinkDisplayHandler } from "./endpoints/Admin/links/links";
-import { addEventRedirectHandler, deleteEventHandler, editEventRedirectHandler, getEventsHandler, updateEventDisplayHandler } from "./endpoints/Admin/events/events";
+import { addEventHandler,  deleteEventHandler,  getEventByIdHandler, getEventsHandler, updateEventDisplayHandler, updateEventHandler } from "./endpoints/Admin/events/events";
 import { createUserHandler, deleteUserHandler, getAllUsersHandler, getUserByIdHandler, updateUserHandler, updateUserPaymentStatusHandler, updateUserStatusHandler } from "./endpoints/Admin/users/users";
 import { getUserAccessInfoHandler, updateUserAccessHandler } from "./endpoints/Admin/users/usersaccess";
 import { changePasswordOptions } from "./endpoints/Admin/chnagepass/changepass";
 import { addProductOptions, getProductsOptions, updateProductDisplayOptions } from "./endpoints/Admin/products/products";
 import { addCompanyOptions, getCompaniesOptions, getCountriesOptions, updateCompanyDisplayOptions } from "./endpoints/Admin/company/company";
-import { deleteContactOptions, getAllContactsOptions } from "./endpoints/Admin/contact/contact";
+import { deleteContactOptions, getAllContactsOptions, getPaginatedContactsOptions } from "./endpoints/Admin/contact/contact";
 import { getOptionsHandler, getPriceHandler, getPriceOptionsHandler, updatePriceHandler } from "./endpoints/Admin/costmanagement/cost";
+import { excelImportOptions } from "./endpoints/Admin/excelImport/excelimport";
+import { addSearchKeywordOptions, deleteSearchKeywordOptions, getSearchKeywordsOptions, toggleSearchKeywordOptions, updateSearchKeywordOptions } from "./endpoints/Admin/search/search";
+import { createOrUpdateIssueOptions, getInitialDataOptions, getIssueOptions } from "./endpoints/Admin/issues/issues";
+import { addArticleHandler, deleteArticleHandler, deleteBulkArticlesHandler, getAllArticlesHandler, getArticleByIdHandler, updateArticleHandler, updateScrollingStatusHandler } from "./endpoints/Admin/articles/articles";
+import { addPageContentOptions, deletePageContentOptions, getPageContentOptions, getPagesOptions, updatePageContentOptions } from "./endpoints/Admin/pageContent/pageContent";
+import { addNewsOptions, deleteNewsOptions, getAllNewsOptions, getNewsByIdOptions, toggleSampleStatusOptions, updateNewsOptions } from "./endpoints/Admin/MonthlyNews/monthlyNews";
+import { newsHandlers } from "./endpoints/Admin/russianmethanol/russianMethanol";
 
 export const setupRoutes = (server: Server) => {
   //Default Page
@@ -279,65 +286,46 @@ export const setupRoutes = (server: Server) => {
 
 
   server.route({
-    method: "GET",
-    path: "/admin/events",
-    // options: { auth: "admin" },
+    method: 'GET',
+    path: '/api/admin/events',
     handler: getEventsHandler
   })
 
 
   server.route({
-    method: "PUT",
-    path: "/admin/events/display",
-    // options: {
-    //   auth: "admin",
-    //   validate: {
-    //     payload: Joi.object({
-    //       evId: Joi.string().required(),
-    //       display: Joi.string().valid("0", "1").required()
-    //     })
-    //   }
-    // },
+    method: 'PUT',
+    path: '/api/admin/events/display',
     handler: updateEventDisplayHandler
   })
 
 
   server.route({
-    method: "DELETE",
-    path: "/admin/events/{evId}",
-    // options: {
-    //   auth: "admin",
-    //   validate: {
-    //     params: Joi.object({
-    //       evId: Joi.string().required()
-    //     })
-    //   }
-    // },
+    method: 'GET',
+    path: '/api/admin/events/{evId}',
+    handler: getEventByIdHandler
+  })
+
+
+  server.route({
+    method: 'PUT',
+    path: '/api/admin/events/{evId}',
+    handler: updateEventHandler
+  })
+
+
+  server.route({
+    method: 'DELETE',
+    path: '/api/admin/events/{evId}',
     handler: deleteEventHandler
-  })
-
-
-  server.route({
-    method: "GET",
-    path: "/admin/events/add",
-    // options: { auth: "admin" },
-    handler: addEventRedirectHandler
-  })
-
-
-  server.route({
-    method: "GET",
-    path: "/admin/events/edit/{evId}",
-    // options: {
-    //   auth: "admin",
-    //   validate: {
-    //     params: Joi.object({
-    //       evId: Joi.string().required()
-    //     })
-    //   }
-    // },
-    handler: editEventRedirectHandler
   
+  })
+
+
+  server.route({
+    
+    method: 'POST',
+    path: '/api/admin/events',
+    handler: addEventHandler
   })
 
 
@@ -555,16 +543,22 @@ export const setupRoutes = (server: Server) => {
 
 
     server.route({
-        method: 'GET',
-        path: '/admin/contacts',
+        method: "GET",
+        path: "/admin/contacts",
         options: getAllContactsOptions
     })
 
+
     server.route({
-      
-        method: 'DELETE',
-        path: '/admin/contacts/{id}',
-        options: deleteContactOptions
+      method: "GET",
+      path: "/admin/contacts/paginated",
+      options: getPaginatedContactsOptions
+    })
+
+    server.route({
+      method: "DELETE",
+      path: "/admin/contacts/{id}",
+      options: deleteContactOptions
     })
 
 
@@ -611,4 +605,290 @@ export const setupRoutes = (server: Server) => {
     })
 
 
+
+  server.route({
+    method: 'POST',
+    path: '/admin/excel-import',
+    options: excelImportOptions
+  })
+
+
+
+  server.route({ 
+    method: 'GET',
+    path: '/admin/search-keywords',
+    options: getSearchKeywordsOptions
+  })
+
+
+  server.route({
+    method: 'POST',
+    path: '/admin/search-keywords',
+    options: addSearchKeywordOptions
+  })
+
+
+  server.route({
+    method: 'PUT',
+    path: '/admin/search-keywords/{id}',
+    options: updateSearchKeywordOptions
+  })
+
+
+  server.route({
+    method: 'PUT',
+    path: '/admin/search-keywords/{id}/toggle',
+    options: toggleSearchKeywordOptions
+  
+  })
+
+
+  server.route({
+    method: 'DELETE',
+    path: '/admin/search-keywords/{id}',
+    options: deleteSearchKeywordOptions
+
+  })
+
+
+  server.route({
+    method: "GET",
+    path: "/api/issues/initial-data",
+    options: getInitialDataOptions
+  });
+  
+  // Get issue by year and month
+  server.route({
+    method: "GET",
+    path: "/api/issues/{year}/{month}",
+    options: getIssueOptions
+  });
+  
+  // Create or update an issue
+  server.route({
+    method: "POST",
+    path: "/api/issues",
+    options: createOrUpdateIssueOptions
+  });
+
+  server.route({
+    method: "GET",
+    path: "/admin/articles",
+    options: {
+      description: "Get all articles",
+      tags: ["api", "Articles"],
+      handler: getAllArticlesHandler
+    }
+  });
+
+  server.route({
+    method: "GET",
+    path: "/admin/articles/{id}",
+    options: {
+      description: "Get article by ID",
+      tags: ["api", "Articles"],
+      handler: getArticleByIdHandler
+    }
+  });
+
+  server.route({
+    method: "POST",
+    path: "/admin/articles",
+    options: {
+      description: "Add new article",
+      tags: ["api", "Articles"],
+      handler: addArticleHandler
+    }
+  });
+
+  server.route({
+    method: "PUT",
+    path: "/admin/articles/{id}",
+    options: {
+      description: "Update article",
+      tags: ["api", "Articles"],
+      handler: updateArticleHandler
+    }
+  });
+
+  server.route({
+    method: "DELETE",
+    path: "/admin/articles/{id}",
+    options: {
+      description: "Delete article",
+      tags: ["api", "Articles"],
+      handler: deleteArticleHandler
+    }
+  });
+
+  server.route({
+    method: "POST",
+    path: "/admin/articles/delete-bulk",
+    options: {
+      description: "Delete multiple articles",
+      tags: ["api", "Articles"],
+      handler: deleteBulkArticlesHandler
+    }
+  });
+
+  server.route({
+    method: "PATCH",
+    path: "/admin/articles/{id}/scrolling",
+    options: {
+      description: "Update article scrolling status",
+      tags: ["api", "Articles"],
+      handler: updateScrollingStatusHandler
+    }
+  });
+
+
+  server.route({
+    method: 'GET',
+    path: '/api/admin/pages',
+    options: getPagesOptions
+  });
+
+  server.route({
+    method: 'GET',
+    path: '/api/admin/pagecontent/{pageId}',
+    options: getPageContentOptions
+  });
+
+  server.route({
+    method: 'PUT',
+    path: '/api/admin/pagecontent/update',
+    options: updatePageContentOptions
+  });
+
+  server.route({
+    method: 'POST',
+    path: '/api/admin/pagecontent/add',
+    options: addPageContentOptions
+  });
+
+  server.route({
+    method: 'DELETE',
+    path: '/api/admin/pagecontent/{contentId}',
+    options: deletePageContentOptions
+  });
+  
+
+  server.route({
+    method: 'GET',
+    path: '/api/admin/news',
+    options: getAllNewsOptions
+  });
+
+  // Get news by ID
+  server.route({
+    method: 'GET',
+    path: '/api/admin/news/{id}',
+    options: getNewsByIdOptions
+  });
+
+  // Add new news
+  server.route({
+    method: 'POST',
+    path: '/api/admin/news',
+    options: addNewsOptions
+  });
+
+  // Update news
+  server.route({
+    method: 'PUT',
+    path: '/api/admin/news/{id}',
+    options: updateNewsOptions
+  });
+
+  // Delete news
+  server.route({
+    method: 'DELETE',
+    path: '/api/admin/news/{id}',
+    options: deleteNewsOptions
+  });
+
+  // Toggle sample status
+  server.route({
+    method: 'PATCH',
+    path: '/api/admin/news/{id}/sample',
+    options: toggleSampleStatusOptions
+  });
+
+
+  server.route({
+    method: "GET",
+    path: "/api/admin/russiannews",
+    options: {
+      description: "Get all news items",
+      tags: ["api", "News"],
+      handler: newsHandlers.getAllRussianNews,
+    },
+  }); 
+
+
+  server.route({
+    method: "GET",
+    path: "/api/admin/russiannews/{id}",
+    options: {
+      description: "Get news by ID",
+      tags: ["api", "News"],
+      handler: newsHandlers.getRussianNewsById
+    }
+  })
+
+  server.route({
+    method: "POST",
+    path: "/api/admin/russiannews",
+    options: {
+      description: "Add new news",
+      tags: ["api", "News"],
+      payload: {
+        output: "stream",
+        parse: true,
+        multipart: true,
+        maxBytes: 20 * 1024 * 1024 
+      },
+      handler: newsHandlers.addRussianNews
+    }
+  })
+
+
+  server.route({
+    method: "PUT",
+    path: "/api/admin/russiannews/{id}",
+    options: {
+      description: "Update news",
+      tags: ["api", "News"],
+      payload: {
+        output: "stream",
+        parse: true,
+        multipart: true,
+        maxBytes: 20 * 1024 * 1024 
+      },
+      handler: newsHandlers.updateRussianNews
+    }
+  })
+
+
+
+  server.route({
+    method: "PATCH",
+    path: "/api/admin/russiannews/{id}/sample",
+    options: {
+      description: "Update news sample status",
+      tags: ["api", "News"],
+      handler: newsHandlers.updateRussianSampleStatus
+    }
+  })
+
+
+  server.route({
+    method: "DELETE",
+    path: "/api/admin/russiannews/{id}",
+    options: {
+      description: "Delete news",
+      tags: ["api", "News"],
+      handler: newsHandlers.deleteRussianNews
+    }
+  })
   };
