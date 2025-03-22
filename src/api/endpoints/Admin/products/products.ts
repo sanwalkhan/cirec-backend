@@ -14,9 +14,18 @@ export const getProductsOptions: RouteOptions = {
         {}
       );
       
+      // Transform data to match frontend expectations
+      const products = result.recordset.map(product => ({
+        pr_id: product.pr_id,
+        pr_name: product.pr_name,
+        pr_group: product.pr_group || "",
+        // Convert numeric display to boolean for frontend
+        pr_display: product.pr_display === "1" || product.pr_display === true
+      }));
+      
       return h.response({
         success: true,
-        products: result.recordset
+        products: products
       }).code(200);
     } catch (error) {
       logger.error("get-products", `Failed to fetch products: ${error}`);
@@ -44,13 +53,32 @@ export const updateProductDisplayOptions: RouteOptions = {
       // Convert boolean to string '0' or '1' like in the .NET code
       const displayStatus = display ? "1" : "0";
       
-      await executeQuery(
+      // Log the query parameters
+      console.log("Updating product:", { prId, display, displayStatus });
+      
+      // Ensure prId is treated as a number if your database expects an integer
+      const numericId = parseInt(prId, 10);
+      
+      // Add additional logging to verify query execution
+      const result = await executeQuery(
         "UPDATE cr_rep_products SET pr_display = @status WHERE pr_id = @id",
         {
           status: displayStatus,
-          id: prId
+          id: numericId  // Use numeric ID instead of string
         }
       );
+      
+      // Log the result to verify rows affected
+      console.log("Update result:", result);
+      
+      // Check if any rows were affected
+      if (result.rowsAffected && result.rowsAffected[0] === 0) {
+        logger.warn("update-product-display", `No rows updated for product ID: ${prId}`);
+        return h.response({
+          success: false,
+          message: "No product found with the specified ID"
+        }).code(404);
+      }
       
       return h.response({
         success: true,
@@ -86,7 +114,7 @@ export const addProductOptions: RouteOptions = {
       
       let maxId = 1;
       if (maxIdResult.recordset[0].maxId) {
-        maxId = maxIdResult.recordset[0].maxId + 1;
+        maxId = parseInt(maxIdResult.recordset[0].maxId) + 1;
       }
       
       // Insert new product

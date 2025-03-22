@@ -498,20 +498,20 @@ export const setupRoutes = (server: Server) => {
 
     // Product management routes
     server.route({
-      method: 'GET',
-      path: '/admin/products',
+      method: "GET",
+      path: "/admin/products",
       options: getProductsOptions
     });
     
     server.route({
-      method: 'PUT',
-      path: '/admin/products/display',
+      method: "PUT",
+      path: "/admin/products/display",
       options: updateProductDisplayOptions
     });
     
     server.route({
-      method: 'POST',
-      path: '/admin/products',
+      method: "POST",
+      path: "/admin/products",
       options: addProductOptions
     });
 

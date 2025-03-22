@@ -11,17 +11,32 @@ export const getCompaniesOptions: RouteOptions = {
   tags: ["api", "Companies"],
   handler: async (request, h) => {
     try {
+      // Query only cr_rep_companies table
       const result = await executeQuery(
-        "SELECT * FROM cr_rep_companies",
+        `SELECT comp_id, comp_name, comp_display 
+         FROM cr_rep_companies`,
         {}
       );
       
+      // Debug the raw data from database
+      // console.log("Raw company data:", result.recordset);
+      
+      // IMPORTANT: Don't transform comp_display if it's already a boolean
+      const companies = result.recordset.map(company => ({
+        ...company,
+        // Keep the original boolean value
+        comp_location: '-'
+      }));
+      
+      // Debug the transformed data
+      // console.log("Transformed companies:", companies);
+
       return h.response({
         success: true,
-        companies: result.recordset
+        companies: companies
       }).code(200);
     } catch (error) {
-      logger.error("get-companies", `Failed to fetch companies: ${error}`);
+      // logger.error("get-companies", `Failed to fetch companies: ${error}`);
       return h.response({
         success: false,
         message: "Failed to fetch companies"
@@ -46,23 +61,36 @@ export const updateCompanyDisplayOptions: RouteOptions = {
     try {
       const { compId, display } = request.payload as { compId: string, display: boolean };
       
-      // Convert boolean to string '0' or '1' as in the .NET code
-      const displayStatus = display ? "1" : "0";
+      // Log the update parameters
+      // console.log("Updating company display:", { compId, display });
       
-      await executeQuery(
+      // Execute the update query - use the boolean directly
+      const result = await executeQuery(
         "UPDATE cr_rep_companies SET comp_display = @status WHERE comp_id = @id",
         {
-          status: displayStatus,
+          status: display, // Use the boolean directly
           id: compId
         }
       );
+      
+      // Log the result to verify rows affected
+      // console.log("Update result:", result);
+      
+      // Check if any rows were affected
+      if (result.rowsAffected && result.rowsAffected[0] === 0) {
+        // logger.warn("update-company-display", `No rows updated for company ID: ${compId}`);
+        return h.response({
+          success: false,
+          message: "No company found with the specified ID"
+        }).code(404);
+      }
       
       return h.response({
         success: true,
         message: "Company display status updated"
       }).code(200);
     } catch (error) {
-      logger.error("update-company-display", `Failed to update company display: ${error}`);
+      // logger.error("update-company-display", `Failed to update company display: ${error}`);
       return h.response({
         success: false,
         message: "Failed to update company display status"
@@ -89,7 +117,7 @@ export const getCountriesOptions: RouteOptions = {
         countries: result.recordset
       }).code(200);
     } catch (error) {
-      logger.error("get-countries", `Failed to fetch countries: ${error}`);
+      // logger.error("get-countries", `Failed to fetch countries: ${error}`);
       return h.response({
         success: false,
         message: "Failed to fetch countries"
@@ -119,45 +147,42 @@ export const addCompanyOptions: RouteOptions = {
         countryId: number 
       };
       
-      // Get max ID (similar to the .NET getAutoId function)
+      // Get max ID from cr_rep_companies
       const maxIdResult = await executeQuery(
-        "SELECT MAX(comp_id) as maxId FROM cr_companies",
+        "SELECT ISNULL(MAX(comp_id), 0) as maxId FROM cr_rep_companies",
         {}
       );
       
       let maxId = 1;
       if (maxIdResult.recordset[0].maxId) {
-        maxId = maxIdResult.recordset[0].maxId + 1;
+        maxId = parseInt(maxIdResult.recordset[0].maxId) + 1;
       }
       
-      // Insert new company
-      await executeQuery(
-        "INSERT INTO cr_companies(comp_id, comp_name, comp_location, comp_country_id) VALUES (@id, @name, @location, @countryId)",
-        {
-          id: maxId,
-          name: companyName,
-          location: companyLocation,
-          countryId: countryId
-        }
-      );
-      
-      // Also insert into rep_companies for display management
-      await executeQuery(
-        "INSERT INTO cr_rep_companies(comp_id, comp_name, comp_display) VALUES (@id, @name, @display)",
-        {
-          id: maxId,
-          name: companyName,
-          display: "1" // Set new companies as visible by default
-        }
-      );
-      
-      return h.response({
-        success: true,
-        message: "Company added successfully",
-        companyId: maxId
-      }).code(201);
+      // Insert into cr_rep_companies only
+      try {
+        // Insert into cr_rep_companies with display set to true by default
+        await executeQuery(
+          "INSERT INTO cr_rep_companies(comp_id, comp_name, comp_display) VALUES (@id, @name, @display)",
+          {
+            id: maxId,
+            name: companyName,
+            display: true // Use boolean directly
+          }
+        );
+        
+        // Log the location and country information
+        // logger.info("add-company", `Company location: ${companyLocation}, Country ID: ${countryId}`);
+        
+        return h.response({
+          success: true,
+          message: "Company added successfully",
+          companyId: maxId
+        }).code(201);
+      } catch (err) {
+        throw err;
+      }
     } catch (error) {
-      logger.error("add-company", `Failed to add company: ${error}`);
+      // logger.error("add-company", `Failed to add company: ${error}`);
       return h.response({
         success: false,
         message: "Failed to add company"

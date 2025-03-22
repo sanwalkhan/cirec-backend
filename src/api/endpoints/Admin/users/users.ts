@@ -19,7 +19,7 @@ interface User {
   username: string;
   password: string;
   type: string;
-  status: string;
+  status: boolean;
   paymentAmount: number;
   date: string;
   fullName: string;
@@ -56,13 +56,13 @@ export async function getAllUsersHandler(request: Request, h: ResponseToolkit) {
         us_paid as paid,
         CASE WHEN us_status='False' THEN 'New' ELSE '' END as isNew 
       FROM cr_user 
-      ORDER BY us_date, us_fname DESC
+      ORDER BY us_date DESC, us_fname
     `;
     
     const result = await executeQuery(query);
     
     // Transform the recordset to match the interface
-    const users = result.recordset.map((record: { id: any; title: any; firstName: any; lastName: any; company: any; department: any; address1: any; address2: any; countryId: any; phone: any; sectorInterest: any; email: any; username: any; password: any; type: any; status: string; paymentAmount: string; date: any; fullName: any; paid: string; isNew: string; }) => ({
+    const users = result.recordset.map((record: any) => ({
       id: record.id,
       title: record.title,
       firstName: record.firstName,
@@ -78,13 +78,19 @@ export async function getAllUsersHandler(request: Request, h: ResponseToolkit) {
       username: record.username,
       password: record.password,
       type: record.type,
-      status: record.status === 'True' || record.status === '1',
+      // Convert string values to boolean
+      status: record.status === 'True' || record.status === '1' || record.status === 1 || record.status === true,
       paymentAmount: parseFloat(record.paymentAmount),
       date: record.date,
       fullName: record.fullName,
-      paid: record.paid === 'True' || record.paid === '1',
-      isNew: record.isNew === 'New'
+      // Convert string values to boolean
+      paid: record.paid === 'True' || record.paid === '1' || record.paid === 1 || record.paid === true,
+      // Handle isNew field
+      isNew: record.isNew === 'New' || record.isNew === true
     }));
+    
+    // Log the transformed data for debugging
+    // console.log("Transformed users data:", users);
     
     return h.response({
       success: true,
@@ -157,11 +163,13 @@ export async function getUserByIdHandler(request: Request, h: ResponseToolkit) {
       username: result.recordset[0].username,
       password: result.recordset[0].password,
       type: result.recordset[0].type,
-      status: result.recordset[0].status === 'True' || result.recordset[0].status === '1',
+      status: result.recordset[0].status === 'True' || result.recordset[0].status === '1' || 
+              result.recordset[0].status === 1 || result.recordset[0].status === true,
       paymentAmount: parseFloat(result.recordset[0].paymentAmount),
       date: result.recordset[0].date,
       fullName: result.recordset[0].fullName,
-      paid: result.recordset[0].paid === 'True' || result.recordset[0].paid === '1',
+      paid: result.recordset[0].paid === 'True' || result.recordset[0].paid === '1' || 
+            result.recordset[0].paid === 1 || result.recordset[0].paid === true,
     };
     
     return h.response({
@@ -213,24 +221,28 @@ export async function createUserHandler(request: Request, h: ResponseToolkit) {
       SELECT SCOPE_IDENTITY() as id;
     `;
     
+    // Convert boolean values to strings for database
+    const status = user.status ? '1' : '0';
+    const paid = user.paid ? '1' : '0';
+    
     const insertResult = await executeQuery(insertQuery, {
       title: user.title,
       firstName: user.firstName,
       lastName: user.lastName,
       company: user.company,
       department: user.department,
-      address1: user.address1,
-      address2: user.address2,
-      countryId: user.countryId,
+      address1: user.address1 || '',
+      address2: user.address2 || '',
+      countryId: user.countryId || '',
       phone: user.phone,
-      sectorInterest: user.sectorInterest,
+      sectorInterest: user.sectorInterest || '',
       email: user.email,
       username: user.username,
       password: user.password,
       type: user.type || 'N',
-      status: user.status ? '1' : '0',
+      status: status,
       paymentAmount: user.paymentAmount || 0,
-      paid: user.paid ? '1' : '0'
+      paid: paid
     });
     
     const newUserId = insertResult.recordset[0].id;
@@ -273,6 +285,10 @@ export async function updateUserHandler(request: Request, h: ResponseToolkit) {
       }).code(404);
     }
     
+    // Convert boolean values to strings for database
+    const status = user.status ? '1' : '0';
+    const paid = user.paid ? '1' : '0';
+    
     // Update user
     const updateQuery = `
       UPDATE cr_user SET
@@ -303,18 +319,18 @@ export async function updateUserHandler(request: Request, h: ResponseToolkit) {
       lastName: user.lastName,
       company: user.company,
       department: user.department,
-      address1: user.address1,
-      address2: user.address2,
-      countryId: user.countryId,
+      address1: user.address1 || '',
+      address2: user.address2 || '',
+      countryId: user.countryId || '',
       phone: user.phone,
-      sectorInterest: user.sectorInterest,
+      sectorInterest: user.sectorInterest || '',
       email: user.email,
       username: user.username,
       password: user.password,
       type: user.type || 'N',
-      status: user.status ? '1' : '0',
+      status: status,
       paymentAmount: user.paymentAmount || 0,
-      paid: user.paid ? '1' : '0'
+      paid: paid
     });
     
     return h.response({
@@ -333,11 +349,16 @@ export async function updateUserHandler(request: Request, h: ResponseToolkit) {
 /**
  * Delete a user
  */
-export async function deleteUserHandler(request: Request, h: ResponseToolkit) {
+/**
+
+/**
+ * Delete a user
+ */
+export async function deleteUserHandler(request: Request, h: ResponseToolkit): Promise<any> {
   try {
     const userId = request.params.userId as string;
     
-    // Get username first
+    // Get the username associated with the userId
     const usernameQuery = `
       SELECT us_username FROM cr_user WHERE us_id = @userId
     `;
@@ -353,32 +374,23 @@ export async function deleteUserHandler(request: Request, h: ResponseToolkit) {
     
     const username = usernameResult.recordset[0].us_username;
     
-    // Begin transaction
-    await executeQuery("BEGIN TRANSACTION");
+    // Execute all queries in sequence without using BEGIN/COMMIT/ROLLBACK
+    console.log("Deleting user-related data...");
+    await executeQuery("DELETE FROM cr_user_mne WHERE umne_us_username = @username", { username });
+    await executeQuery("DELETE FROM cr_user_mnews WHERE um_us_username = @username", { username });
+    await executeQuery("DELETE FROM cr_user_sda WHERE usda_us_username = @username", { username });
+    await executeQuery("DELETE FROM cr_user_sea WHERE usea_us_username = @username", { username });
+    await executeQuery("DELETE FROM cr_user_seat WHERE seat_us_username = @username", { username });
+    await executeQuery("DELETE FROM cr_user WHERE us_id = @userId", { userId });
     
-    try {
-      // Delete user and all related data
-      await executeQuery("DELETE FROM cr_user_mne WHERE umne_us_username = @username", { username });
-      await executeQuery("DELETE FROM cr_user_mnews WHERE um_us_username = @username", { username });
-      await executeQuery("DELETE FROM cr_user_sda WHERE usda_us_username = @username", { username });
-      await executeQuery("DELETE FROM cr_user_sea WHERE usea_us_username = @username", { username });
-      await executeQuery("DELETE FROM cr_user_seat WHERE seat_us_username = @username", { username });
-      await executeQuery("DELETE FROM cr_user WHERE us_id = @userId", { userId });
-      
-      // Commit transaction
-      await executeQuery("COMMIT TRANSACTION");
-      
-      return h.response({
-        success: true,
-        message: "User deleted successfully"
-      }).code(200);
-    } catch (error) {
-      // Rollback transaction on error
-      await executeQuery("ROLLBACK TRANSACTION");
-      throw error;
-    }
+    return h.response({
+      success: true,
+      message: "User deleted successfully"
+    }).code(200);
+    
   } catch (error) {
-    logger.error("admin-users", `Failed to delete user: ${error}`);
+    console.error("Error in user deletion:", error instanceof Error ? error.message : error);
+    
     return h.response({
       success: false,
       message: "Failed to delete user"
